@@ -75,7 +75,7 @@ AI is a pluggable capability behind an `AiCapability` interface (ADR 0007, confi
 
 ## 13. Observability
 
-Structured logging (JSON, correlation-ID per request) from the first module onward, per the master prompt's Section 2 principle 10 and anticipating Ch110/Ch111. Full OpenTelemetry tracing, SLIs/SLOs (Ch109), and dashboards are out of scope for this phase but the correlation-ID convention is established now so it doesn't need retrofitting.
+**As of Phase 7** (Ch110/111, ADR 0020): every request carries an `X-Correlation-Id` (`correlation-id.middleware.ts`, propagated if the caller sent one, generated otherwise, echoed in the response header) and `pii-redaction.util.ts` masks phone/email patterns before they reach a log line. This is the plumbing and the convention — not yet retrofitted across every existing `Logger.log()` call site, and not yet backed by structured JSON logging or a real log aggregator (no cloud provider chosen, Ch101). Full OpenTelemetry tracing, SLIs/SLOs (proposed targets in `docs/slo.md`, Ch109), and dashboards remain out of scope pending real infrastructure.
 
 ## 14. Testing strategy
 
@@ -87,7 +87,11 @@ Docker Compose for local development (`infrastructure/docker-compose.yml`: Postg
 
 ## 16. Security architecture
 
-See `docs/security.md`.
+See `docs/security.md` and `docs/threat-model.md` (Ch92, Phase 7). **As of Phase 7** (ADR 0020): per-user rate limiting (Ch95), opt-in Admin/Support MFA (Ch93), AES-256-GCM field-level encryption for KYC document references (Ch94), and a GPS-spoof heuristic (Ch99) are all real. See `docs/incident-response.md` (Ch100) for the response procedure.
+
+## 16a. Compliance architecture (Ch126, Ch128, Ch131 — implemented as of Phase 7, ADR 0020)
+
+A versioned, audited `ConsentRecord` (Ch128) gates any endpoint that collects a location — `RequestController.create()` and `ProviderController.updateOwnPresence()` when it carries one — enforced in both `apps/api` and `apps/mobile` as of this same phase. `GET /users/me/data-export` and `DELETE /users/me` (Ch126) are real endpoints, not policy language; erasure anonymizes rather than hard-deletes (Ch131's soft-delete/hard-delete resolution), preserving referential integrity for other parties' transaction history and MOTIQ's own financial/audit trail. Ch127 (data localization), Ch129 (ToS/liability), Ch130 (gig-worker classification) remain unaddressed — legal-drafting chapters needing real counsel, not fabricated in a coding session.
 
 ## 17. Scalability considerations
 

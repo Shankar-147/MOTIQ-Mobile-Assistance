@@ -62,6 +62,14 @@ Auth endpoints (unauthenticated — these issue the tokens everything else needs
 | `POST /api/v1/auth/admin/login` | `{ identifier, password }` → Admin/Support only; identical `401` whether the account doesn't exist or the password is wrong. Returns a `TokenPairResponse`. |
 | `POST /api/v1/auth/refresh` | `{ refreshToken }` → validates, revokes the presented token, issues a brand-new pair (rotation, Ch33). |
 
+**Admin/Support MFA endpoints, implemented as of Phase 7** (Ch93, ADR 0020, all require a valid access token):
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/v1/auth/admin/mfa/enroll` | Generates a TOTP secret (not yet active) and an `otpauth://` URI for a QR code. |
+| `POST /api/v1/auth/admin/mfa/confirm` | `{ code }` → confirms enrollment with a real generated code; only then does `AdminLoginDto.totpCode` become required on future logins. |
+| `DELETE /api/v1/auth/admin/mfa` | Disables MFA for the account. |
+
 A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape in `@motiq/types`) is never wrapped in the standard success envelope described above — it's the one response shape that's already exactly what the client needs, and it never contains money or list data.
 
 **Core transaction flow endpoints, implemented as of Phase 2** (see ADRs 0012–0014 for the reasoning):
@@ -104,6 +112,15 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | `POST /api/v1/ai/classify-issue` | Customer | `{ description }` → a suggested `issueType` + confidence (Ch83). Never gates request creation — `CreateServiceRequestDto.issueType` is still always the customer's own explicit choice. |
 | `POST /api/v1/ai/assistant/conversations` | Customer, Provider | Starts a new `AiConversation`. |
 | `POST /api/v1/ai/assistant/conversations/:id/messages` | Customer, Provider (own conversation) | `{ message }` → `{ reply, emergencyDetected, escalated }` (Ch90). Emergency-intent detection runs before any AI call; **cannot** trigger a real SOS flow (Ch55 doesn't exist) — see ADR 0019. No mobile UI calls this yet. |
+
+**Consent and Data Rights endpoints, implemented as of Phase 7** (Ch126, Ch128, ADR 0020):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `GET /api/v1/consent` | Any authenticated role | List own consent history. |
+| `POST\|DELETE /api/v1/consent/location-tracking` | Any authenticated role | Grant/revoke location-tracking consent — gates `POST /requests` and `PATCH /providers/me/presence` (when it carries a location). |
+| `GET /api/v1/users/me/data-export` | Any authenticated role | Ch126's binding "real endpoint, not policy language" — every module's data about the caller, in one JSON response. Never includes password hashes, refresh-token hashes, or MFA secrets. |
+| `DELETE /api/v1/users/me` | Any authenticated role | Erasure — anonymizes (phone/email/name cleared, account deactivated, refresh tokens revoked) rather than hard-deletes; see ADR 0020 for why. |
 
 ## Idempotency
 

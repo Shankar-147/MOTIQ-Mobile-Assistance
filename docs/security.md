@@ -10,6 +10,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 - Short-lived JWT access tokens with **opaque, DB-backed refresh-token rotation** (Ch33) — refresh tokens are random strings, stored only as a SHA-256 hash, revoked and replaced on every use. A JWT can't be genuinely revoked without a blocklist, which is why refresh tokens deliberately aren't JWTs here.
 - OTP codes are hashed at rest too (SHA-256 — a fast hash is the right call for a 6-digit code; the real defense is the 5-minute expiry, 30-second resend cooldown, and 5-attempt cap, not the hash algorithm). **As of Phase 5** (ADR 0017), OTP delivery goes through a real Twilio adapter (degrading to a logged fallback if unconfigured) rather than always logging — see `NotificationService.sendOtpSms()`.
 - No secrets, tokens, or credentials committed to git. `.env` is gitignored; `.env.example` documents every required variable with a placeholder, never a real value.
+- **As of Phase 7** (Ch93, ADR 0020): opt-in TOTP MFA for Admin/Support accounts (`POST /auth/admin/mfa/enroll` → `POST /auth/admin/mfa/confirm`, RFC 6238, any standard authenticator app). Not enforced — an account can operate password-only, tracked in Reconciliation Notes.
 
 ## Authorization
 
@@ -24,8 +25,11 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## Rate limiting
 
-- Per-user/per-provider rate limiting (Ch95), not just a generic gateway-level limit — a compromised single account should not be able to exhaust shared capacity.
-- The SOS path (once built, Ch55) is explicitly exempted from any rate limit that could delay a genuine trigger — err toward false positives, never false negatives, on that path specifically.
+**Implemented as of Phase 7** (Ch95, ADR 0020).
+
+- Global default limit via `@nestjs/throttler`, tracked **per-user** (the JWT subject, decoded but not verified — bucketing only, never a substitute for real auth) when a Bearer token is present, falling back to per-IP for unauthenticated requests — not just a generic gateway-level limit, per Ch95's binding requirement. See `throttle-tracker.util.ts`.
+- Tighter per-route limits on OTP request/verify, admin login, and AI Assistant messages — the endpoints where abuse is cheapest for an attacker and costliest for MOTIQ or its users.
+- The SOS path (once built, Ch55) will need to be explicitly exempted from any rate limit that could delay a genuine trigger — err toward false positives, never false negatives, on that path specifically. Not applicable yet since Ch55 doesn't exist.
 
 ## Secrets management
 
@@ -43,9 +47,10 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## Sensitive data handling
 
-- **Location history** is one of MOTIQ's most sensitive data categories (Ch94, Ch128) — current location is stored on `ProviderProfile`; historical location trails (Ch40's `location_pings`) are explicitly out of scope for this phase, and when built, must be designed with the DPDP Act's consent and retention requirements (Ch126, Ch128) in mind from the start, not retrofitted.
+- **Location history** is one of MOTIQ's most sensitive data categories (Ch94, Ch128). **As of Phase 7** (ADR 0020): `RequestController.create()` and `ProviderController.updateOwnPresence()` (when it carries a location) both gate on a real, versioned, audited `ConsentRecord` (Ch128) via `ConsentService.requireConsent()` — not just policy language. Historical location trails (Ch40's `location_pings`) still have no separate retention/deletion policy beyond raw retention (tracked since Phase 3).
 - **Payment data** never touches MOTIQ's own servers directly for card details — tokenization boundary with the payment gateway (Ch97) keeps PCI scope minimized. Not implemented against a real gateway in this bootstrap phase, but the `Payment` schema's design (storing amounts and references, never raw card data) already respects this boundary.
-- Encryption at rest for the database is a deployment-environment concern (managed Postgres with encryption enabled) rather than application-level in this phase; field-level encryption for especially sensitive PII (Ch94) is not yet implemented — listed in Reconciliation Notes.
+- Encryption at rest for the database is a deployment-environment concern (managed Postgres with encryption enabled) rather than application-level for most fields. **As of Phase 7** (Ch94, ADR 0020): `ProviderVerificationDocument.fileUrl` is encrypted at the application layer (AES-256-GCM, `encryption.util.ts`) — the most sensitive currently-stored field. The master key is a bare `ENCRYPTION_MASTER_KEY` env var, not a real KMS-managed key (no KMS exists in this environment) — `encryptField()`/`decryptField()` throw rather than silently storing plaintext when unconfigured.
+- **Data Principal rights** (Ch126, binding): `GET /users/me/data-export` and `DELETE /users/me` are real endpoints as of Phase 7, not policy language. Erasure anonymizes rather than hard-deletes — see ADR 0020's reasoning.
 
 ## OWASP-adjacent defaults
 
@@ -53,6 +58,14 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 - CORS restricted to known origins (`apps/web`, and later `apps/mobile`'s API gateway) — not `*`.
 - `helmet` middleware enabled in `main.ts` for secure default HTTP headers.
 
+## Fraud detection
+
+**Partially implemented as of Phase 7** (Ch99, ADR 0020) — `gps-spoof.util.ts` flags a physically-implausible speed between a provider's consecutive `location_pings` (the "fake job completion" scenario Ch99 names), setting `LocationPing.flaggedAsSuspicious` and logging a warning. Advisory only, never blocks the tracking write path or a payment (ADR 0007's "additive, never load-bearing" principle). No aggregate cross-provider fraud-pattern or fake-account/collusion detection (Ch99's fuller scope) exists yet.
+
+## Logging and tracing
+
+**Implemented as of Phase 7** (Ch110/111, ADR 0020) — `correlation-id.middleware.ts` generates or propagates an `X-Correlation-Id` on every request, echoed in the response header, for tracing one request across logs once a log aggregator exists (Ch101 pending). `pii-redaction.util.ts` masks phone/email patterns before they reach a log line. Both are plumbing and convention — not yet retrofitted across every existing `Logger.log()` call site.
+
 ## What this phase does not implement
 
-Full threat modeling (Ch92), MFA (Ch93), field-level PII encryption (Ch94), WAF/DDoS configuration (Ch95), mobile app hardening (Ch96), and fraud detection (Ch99) are all real, binding future work — not designed here. This document is the baseline the bootstrap phase actually implements; it is not a claim that MOTIQ is secure end-to-end yet.
+See `docs/threat-model.md` (Ch92) for the full attack-surface analysis and `docs/roadmap.md`'s Reconciliation Notes for the itemized list. In short: everything presupposing real deployed infrastructure (Ch101–108, Ch112–117 — cloud provider, CI/CD, secrets manager, alerting, backup/DR, chaos engineering), mobile app hardening (Ch96 — certificate pinning, root/jailbreak detection, needs `apps/mobile` actually running on a device), and a real KMS for `ENCRYPTION_MASTER_KEY` (Ch94's fuller intent). This document is the baseline the bootstrap phase actually implements; it is not a claim that MOTIQ is secure end-to-end yet.

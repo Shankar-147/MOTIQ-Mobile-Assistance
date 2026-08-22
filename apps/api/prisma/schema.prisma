@@ -149,6 +149,7 @@ model User {
   pushDeviceTokens        PushDeviceToken[]
   notificationPreference  NotificationPreference?
   aiConversations         AiConversation[]
+  consentRecords          ConsentRecord[]
 
   @@map("users")
 }
@@ -342,6 +343,10 @@ model LocationPing {
   latitude          Float
   longitude         Float
   recordedAt        DateTime        @default(now())
+  /// Ch99 — set when this ping implies a physically-implausible speed since
+  /// the provider's previous ping (gps-spoof.util.ts). Advisory only: never
+  /// blocks the tracking write path or a job's completion — see ADR 0020.
+  flaggedAsSuspicious Boolean       @default(false)
 
   @@id([id, recordedAt])
   @@index([providerProfileId, recordedAt])
@@ -355,6 +360,15 @@ model AdminProfile {
   department String?
   notes      String?
   createdAt  DateTime @default(now())
+
+  /// Ch93 — TOTP MFA, opt-in per Admin/Support account. `mfaSecret` is the
+  /// raw base32 TOTP secret (this bootstrap has no KMS to envelope-encrypt
+  /// it with — see ADR 0020's honest note on that gap). `mfaEnabled` only
+  /// flips true once enrollment is confirmed with a real TOTP code, so a
+  /// half-finished enrollment never silently starts requiring a code the
+  /// admin never confirmed they can generate.
+  mfaSecret  String?
+  mfaEnabled Boolean  @default(false)
 
   @@map("admin_profiles")
 }
@@ -566,4 +580,25 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+enum ConsentType {
+  LOCATION_TRACKING
+}
+
+/// Ch128 — explicit, versioned consent with an audit trail, required before
+/// location collection begins. `version` lets a future changed consent-copy
+/// require re-grant (Ch128's "consent versioning") without losing the
+/// history of what was previously granted. See ADR 0020.
+model ConsentRecord {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consentType ConsentType
+  version     Int
+  grantedAt   DateTime    @default(now())
+  revokedAt   DateTime?
+
+  @@index([userId, consentType])
+  @@map("consent_records")
 }

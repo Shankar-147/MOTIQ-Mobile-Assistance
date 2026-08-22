@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { IssueType } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
+import { consentApi } from "../../api/consentApi";
 import { enqueueServiceRequest } from "../../api/offlineQueue";
 import { useConnectivityStore } from "../../store/connectivityStore";
 import { MIN_TOUCH_TARGET_SIZE, A11Y_LABELS } from "../../accessibility/a11y";
@@ -47,11 +48,16 @@ export function CreateRequestScreen({ navigation }: Props) {
       if (!isConnected) {
         // Ch67's mandatory offline-first guarantee — queue locally and let
         // watchConnectivityAndFlush (wired in App.tsx) submit it on reconnect.
+        // Consent (Ch128) is granted on reconnect too, right before the
+        // queue flushes — see offlineQueue.ts.
         await enqueueServiceRequest(dto);
         setStatus("You're offline — your request is saved and will send automatically once you reconnect.");
         return;
       }
 
+      // Ch128 — must precede requestApi.create(), which the backend now
+      // gates on this consent existing (ConsentService.requireConsent()).
+      await consentApi.grantLocationTracking();
       const response = await requestApi.create(dto);
       const created = response.data as { id: string };
       navigation.navigate("TrackRequest", { serviceRequestId: created.id });

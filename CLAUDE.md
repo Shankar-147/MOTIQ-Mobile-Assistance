@@ -71,7 +71,7 @@ See `docs/api-conventions.md` in full before adding an endpoint. Highlights: `/a
 
 ## Security rules
 
-See `docs/security.md` in full. Highlights: no plaintext credentials ever; OTP for Customer/Provider, hashed passwords for Admin/Support; per-user rate limiting, not just gateway-level; every third-party call goes through an internal adapter (never a direct SDK call from domain code); webhook signatures always verified.
+See `docs/security.md` in full. Highlights: no plaintext credentials ever; OTP for Customer/Provider, hashed passwords for Admin/Support; per-user rate limiting, not just gateway-level; every third-party call goes through an internal adapter (never a direct SDK call from domain code); webhook signatures always verified; any endpoint that collects a location must go through `ConsentService.requireConsent()` (Ch128) — never bypass this "just for a new endpoint," add the check the same way `RequestController.create()`/`ProviderController.updateOwnPresence()` do.
 
 ## Commands
 

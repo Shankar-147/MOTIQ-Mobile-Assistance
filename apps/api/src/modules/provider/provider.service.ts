@@ -12,6 +12,7 @@ import {
   isEligibleForMatching,
 } from "./provider-verification-state-machine";
 import { calculateTrustScore } from "./trust-score.util";
+import { decryptField, encryptField } from "../../common/encryption.util";
 
 interface NearbyProviderRow {
   id: string;
@@ -159,31 +160,44 @@ export class ProviderService {
   }
 
   /** Ch98 — a provider self-submits KYC documents; fileUrl is a client-
-   * supplied reference (no real storage/scanning integration — see ADR 0016). */
+   * supplied reference (no real storage/scanning integration — see ADR 0016).
+   * Encrypted at rest as of Phase 7 (Ch94, ADR 0020) — the most sensitive
+   * currently-stored field with no functional need to be plaintext-searchable. */
   async submitVerificationDocument(
     providerProfileId: string,
     documentType: VerificationDocumentType,
     fileUrl: string,
   ) {
     await this.findById(providerProfileId);
-    return this.prisma.providerVerificationDocument.create({
-      data: { providerProfileId, documentType, fileUrl },
+    const document = await this.prisma.providerVerificationDocument.create({
+      data: { providerProfileId, documentType, fileUrl: this.encryptFileUrl(fileUrl) },
     });
+    return { ...document, fileUrl };
   }
 
   async listOwnVerificationDocuments(providerProfileId: string) {
-    return this.prisma.providerVerificationDocument.findMany({
+    const documents = await this.prisma.providerVerificationDocument.findMany({
       where: { providerProfileId },
       orderBy: { submittedAt: "desc" },
     });
+    return documents.map((document) => ({ ...document, fileUrl: this.decryptFileUrl(document.fileUrl) }));
   }
 
   /** Ch61's provider-verification workflow backend reads through this — see AdminService. */
   async listPendingVerificationDocuments() {
-    return this.prisma.providerVerificationDocument.findMany({
+    const documents = await this.prisma.providerVerificationDocument.findMany({
       where: { status: PrismaDocumentStatus.PENDING },
       orderBy: { submittedAt: "asc" },
     });
+    return documents.map((document) => ({ ...document, fileUrl: this.decryptFileUrl(document.fileUrl) }));
+  }
+
+  private encryptFileUrl(fileUrl: string): string {
+    return encryptField(fileUrl, this.config.get<string>("ENCRYPTION_MASTER_KEY"));
+  }
+
+  private decryptFileUrl(ciphertext: string): string {
+    return decryptField(ciphertext, this.config.get<string>("ENCRYPTION_MASTER_KEY"));
   }
 
   /**
@@ -212,7 +226,7 @@ export class ProviderService {
       );
     }
 
-    return this.prisma.providerVerificationDocument.update({
+    const updated = await this.prisma.providerVerificationDocument.update({
       where: { id: documentId },
       data: {
         status: decision as unknown as PrismaDocumentStatus,
@@ -221,6 +235,7 @@ export class ProviderService {
         reviewedAt: new Date(),
       },
     });
+    return { ...updated, fileUrl: this.decryptFileUrl(updated.fileUrl) };
   }
 
   /**

@@ -116,3 +116,8 @@ export enum DevicePlatform {
   IOS = "IOS",
   ANDROID = "ANDROID",
 }
+
+/** Ch128 — explicit, versioned consent required before location collection begins. */
+export enum ConsentType {
+  LOCATION_TRACKING = "LOCATION_TRACKING",
+}

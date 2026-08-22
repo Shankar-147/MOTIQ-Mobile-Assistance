@@ -21,7 +21,7 @@ The authentication identity, independent of role-specific data. Holds `phone` (p
 Ch98's KYC submission (implemented Phase 4, ADR 0016). `providerProfileId`, `documentType` (`DRIVING_LICENSE | VEHICLE_REGISTRATION | IDENTITY_PROOF | ADDRESS_PROOF | OTHER` — this bootstrap phase's own taxonomy, Ch98 hasn't specified one), `fileUrl` (a client-supplied reference — no real file storage/scanning integration exists), `status` (`PENDING | APPROVED | REJECTED`), `reviewedByUserId`/`reviewNotes`/`reviewedAt`. Reviewing a document does **not** automatically change the provider's overall `verificationStatus` — that's a separate, explicit admin action (see ADR 0016's reasoning).
 
 ### AdminProfile
-1:1 with `User` where `role` is `ADMIN` or `SUPPORT`. Minimal in this phase (department/notes) — Ch61's Admin & Operations Service will extend this.
+1:1 with `User` where `role` is `ADMIN` or `SUPPORT`. Minimal in this phase (department/notes) — Ch61's Admin & Operations Service will extend this. `mfaSecret`/`mfaEnabled` (Phase 7, Ch93) — opt-in TOTP; `mfaEnabled` only flips true once enrollment is confirmed with a real generated code.
 
 ### Vehicle
 Belongs to a `CustomerProfile`. `vehicleType` (`TWO_WHEELER | CAR | COMMERCIAL`), make, model, year, plate number.
@@ -70,7 +70,10 @@ Ch59, Phase 5. 1:1 with `User`, created lazily on first read/write. `smsEnabled`
 Ch90, Phase 6. `AiConversation`: `userId`, `emergencyDetected`/`escalated` (Booleans — a real future review process, Ch91, can query which conversations left the assistant's normal path), `estimatedCostUsd` (Decimal, cumulative — Ch90's binding cost-per-conversation cap, see `ai-cost.util.ts`). `AiConversationMessage`: `conversationId`, `role` (`USER | ASSISTANT`), `content`. See ADR 0019 for what this assistant can and can't do (notably: it cannot redirect to a real SOS path, because Ch55 doesn't exist).
 
 ### LocationPing
-Ch40's raw GPS trail store (implemented Phase 3, ADR 0015). `providerProfileId`, `latitude`/`longitude` (plain Floats, deliberately not PostGIS geography — see ADR 0015's "why not geography" note), `recordedAt`. Composite `(id, recordedAt)` primary key, not a plain single-column one, because TimescaleDB requires any unique/PK constraint on a hypertable to include the partitioning column. Written by `TrackingService` on every accepted (throttled) location update from a provider.
+Ch40's raw GPS trail store (implemented Phase 3, ADR 0015). `providerProfileId`, `latitude`/`longitude` (plain Floats, deliberately not PostGIS geography — see ADR 0015's "why not geography" note), `recordedAt`. Composite `(id, recordedAt)` primary key, not a plain single-column one, because TimescaleDB requires any unique/PK constraint on a hypertable to include the partitioning column. Written by `TrackingService` on every accepted (throttled) location update from a provider. `flaggedAsSuspicious` (Boolean, Phase 7, Ch99) — set when `gps-spoof.util.ts` detects a physically-implausible speed since the provider's previous ping; advisory only, never blocks the write.
+
+### ConsentRecord
+Ch128, Phase 7. `userId`, `consentType` (`LOCATION_TRACKING` today), `version` (Int — a future consent-copy change bumps this, requiring re-grant without deleting history), `grantedAt`, `revokedAt`. Gates `RequestController.create()` and `ProviderController.updateOwnPresence()` (when it carries a location) via `ConsentService.requireConsent()`.
 
 ## Deliberately out of scope for this phase (see Reconciliation Notes)
 

@@ -7,6 +7,8 @@ import { AuthService } from "./auth/auth.service";
 import { AuthController } from "./auth/auth.controller";
 import { JwtStrategy } from "./auth/strategies/jwt.strategy";
 import { NotificationModule } from "../notification/notification.module";
+import { DataRightsController } from "./data-rights.controller";
+import { DataRightsService } from "./data-rights.service";
 
 /**
  * Owns User, CustomerProfile, ProviderProfile, AdminProfile, and auth
@@ -34,8 +36,8 @@ import { NotificationModule } from "../notification/notification.module";
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [IdentityService, AuthService, JwtStrategy],
+  controllers: [AuthController, DataRightsController],
+  providers: [IdentityService, AuthService, JwtStrategy, DataRightsService],
   exports: [IdentityService, AuthService, JwtModule],
 })
 export class IdentityModule {}

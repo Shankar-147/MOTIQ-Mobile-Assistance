@@ -20,6 +20,7 @@ import { generateOtpCode, hashOtpCode, verifyOtpCode } from "./otp.util";
 import { generateOpaqueToken, hashToken } from "./token.util";
 import { comparePassword } from "./password.util";
 import { NotificationService } from "../../notification/notification.service";
+import { generateTotpSecret, generateTotpUri, verifyTotpCode } from "./totp.util";
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_RESEND_COOLDOWN_SECONDS = 30;
@@ -139,7 +140,59 @@ export class AuthService {
       throw invalidCredentials();
     }
 
+    if (user.adminProfile.mfaEnabled) {
+      if (!dto.totpCode) {
+        throw new UnauthorizedException("MFA code required.");
+      }
+      if (!user.adminProfile.mfaSecret || !verifyTotpCode(dto.totpCode, user.adminProfile.mfaSecret)) {
+        throw invalidCredentials();
+      }
+    }
+
     return this.issueTokenPair(user.id, user.role as unknown as UserRole, user.adminProfile.id);
+  }
+
+  /** Ch93 — step 1 of MFA enrollment: generate a secret, don't enable MFA
+   * yet (mfaEnabled flips true only in confirmMfaEnrollment, once the admin
+   * proves they can actually generate a valid code from it). */
+  async startMfaEnrollment(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { adminProfile: true } });
+    if (!user?.adminProfile) {
+      throw new NotFoundException(`Admin profile for user ${userId} not found.`);
+    }
+    const secret = generateTotpSecret();
+    await this.prisma.adminProfile.update({
+      where: { id: user.adminProfile.id },
+      data: { mfaSecret: secret, mfaEnabled: false },
+    });
+    return { secret, otpauthUri: generateTotpUri(secret, user.phone) };
+  }
+
+  async confirmMfaEnrollment(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { adminProfile: true } });
+    if (!user?.adminProfile?.mfaSecret) {
+      throw new BadRequestException("No pending MFA enrollment — call startMfaEnrollment first.");
+    }
+    if (!verifyTotpCode(code, user.adminProfile.mfaSecret)) {
+      throw new BadRequestException("Invalid code.");
+    }
+    await this.prisma.adminProfile.update({
+      where: { id: user.adminProfile.id },
+      data: { mfaEnabled: true },
+    });
+    return { mfaEnabled: true };
+  }
+
+  async disableMfa(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { adminProfile: true } });
+    if (!user?.adminProfile) {
+      throw new NotFoundException(`Admin profile for user ${userId} not found.`);
+    }
+    await this.prisma.adminProfile.update({
+      where: { id: user.adminProfile.id },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
+    return { mfaEnabled: false };
   }
 
   async refresh(dto: RefreshTokenDto): Promise<TokenPairResponse> {

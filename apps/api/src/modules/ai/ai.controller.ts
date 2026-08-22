@@ -1,4 +1,5 @@
 import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AuthenticatedUser, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
@@ -29,8 +30,11 @@ export class AiController {
     return this.aiService.startConversation(user.userId);
   }
 
+  // Ch95 — on top of AiService's own per-conversation cost cap, this bounds
+  // how fast a single account can burn through it.
   @Post("assistant/conversations/:id/messages")
   @Roles(UserRole.CUSTOMER, UserRole.PROVIDER)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   sendMessage(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") conversationId: string,

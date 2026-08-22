@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PresenceStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -6,6 +6,7 @@ import { ProviderService } from "../provider/provider.service";
 import { MatchingService } from "../matching/matching.service";
 import { estimateEta, EtaEstimate } from "./eta.util";
 import { shouldAcceptLocationUpdate } from "./location-throttle.util";
+import { detectImplausibleMovement } from "./gps-spoof.util";
 
 const DEFAULT_MIN_INTERVAL_MS = 3000;
 
@@ -24,6 +25,7 @@ export interface LocationUpdateResult {
  */
 @Injectable()
 export class TrackingService {
+  private readonly logger = new Logger(TrackingService.name);
   private readonly lastAcceptedAt = new Map<string, Date>();
 
   constructor(
@@ -51,8 +53,29 @@ export class TrackingService {
       latitude,
       longitude,
     });
+
+    // Ch99 — advisory GPS-spoof heuristic (ADR 0020): checked against this
+    // provider's own last-persisted ping, never against a client-supplied
+    // "previous location," so a spoofed pair can't just claim consistency
+    // with itself.
+    const previousPing = await this.prisma.locationPing.findFirst({
+      where: { providerProfileId },
+      orderBy: { recordedAt: "desc" },
+    });
+    const flaggedAsSuspicious = detectImplausibleMovement(
+      previousPing
+        ? { latitude: previousPing.latitude, longitude: previousPing.longitude, recordedAt: previousPing.recordedAt }
+        : null,
+      { latitude, longitude, recordedAt: now },
+    );
+    if (flaggedAsSuspicious) {
+      this.logger.warn(
+        `Implausible movement detected for provider ${providerProfileId} — flagging location_ping (Ch99, advisory only).`,
+      );
+    }
+
     await this.prisma.locationPing.create({
-      data: { providerProfileId, latitude, longitude, recordedAt: now },
+      data: { providerProfileId, latitude, longitude, recordedAt: now, flaggedAsSuspicious },
     });
 
     const activeAssignment = await this.matchingService.getActiveAssignmentForProvider(providerProfileId);
