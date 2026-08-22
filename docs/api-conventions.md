@@ -79,6 +79,17 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | `POST /api/v1/requests/:requestId/ratings` | Customer (own, completed) | One rating per request; provider derived from the accepted `Assignment`, never client-supplied. |
 | `POST /api/v1/payments/webhooks/razorpay` | Unauthenticated — signature IS the auth | See ADR 0014. |
 
+**Provider verification & trust endpoints, implemented as of Phase 4** (ADR 0016):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `POST /api/v1/providers/me/verification-documents` | Provider | Submit a KYC document (`fileUrl` is a client-supplied reference — no real storage integration). |
+| `GET /api/v1/providers/me/verification-documents` | Provider | List own submissions. |
+| `GET /api/v1/admin/providers/verification-documents` | Admin, Support | List all `PENDING` documents across providers. |
+| `PATCH /api/v1/admin/providers/verification-documents/:id/review` | Admin, Support | `{ decision: "APPROVED"\|"REJECTED", notes? }` — does not itself change the provider's tier. |
+| `PATCH /api/v1/admin/providers/:id/verification-status` | Admin | `{ status }` — the guarded tier transition; higher-stakes than document review, so Admin-only. |
+| `POST /api/v1/admin/providers/verification-sweep` | Admin | Manual stand-in for Ch62's future re-verification-cadence scheduler; de-lists lapsed providers. |
+
 ## Idempotency
 
 `Idempotency-Key` header **required** on POST/PATCH endpoints with money-movement or job-creation side effects (Ch29, Ch43) — this is the binding rule; **not literally implemented as a client-supplied header yet**. Payment settlement instead uses a server-derived idempotency key (`settle:${serviceRequestId}`, one settlement per request, ever) — see ADR 0014. A real client-supplied `Idempotency-Key` header is tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.

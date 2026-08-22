@@ -4,12 +4,14 @@ import { RequestStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { DomainEvents, RatingSubmittedEvent } from "../../common/events/domain-events";
 import { MatchingService } from "../matching/matching.service";
+import { ProviderService } from "../provider/provider.service";
 
 @Injectable()
 export class RatingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchingService: MatchingService,
+    private readonly providerService: ProviderService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -84,6 +86,11 @@ export class RatingService {
       where: { id: params.providerProfileId },
       data: { ratingAverage: agg._avg.stars ?? 0 },
     });
+
+    // trustScore (Ch58) depends on ratingAverage — recompute now that it's
+    // changed. Owned by ProviderService (it owns ProviderProfile), not
+    // duplicated here — see docs/decisions/0016-*.md.
+    await this.providerService.recomputeTrustScore(params.providerProfileId);
 
     return rating;
   }

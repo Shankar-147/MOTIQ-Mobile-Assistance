@@ -1,6 +1,6 @@
 # MOTIQ — Phased Implementation Roadmap
 
-Companion to `docs/architecture.md`. Phases 0–3 are complete; this is the proposed sequencing for what comes next.
+Companion to `docs/architecture.md`. Phases 0–4 are complete; this is the proposed sequencing for what comes next.
 
 ## Phase 0 — Architecture & Bootstrap (complete)
 
@@ -22,9 +22,11 @@ A JWT-authenticated WebSocket gateway (`/tracking`, ADR 0015) with room-per-requ
 
 **Not fully done**: no batching of location writes (each throttled update is its own insert); no downsampling for `location_pings` (raw-retention only); the throttle state is per-instance, not shared across a multi-instance deployment; neither TimescaleDB nor Redis has been verified against a real instance in this environment; `apps/mobile` doesn't exist yet, so the WebSocket protocol has never been exercised by a real client, only by DI-graph and unit-level checks. See the Reconciliation Notes below.
 
-## Phase 4 — Provider Verification & Trust (Ch58, Ch98)
+## Phase 4 — Provider Verification & Trust (Ch58, Ch61, Ch98) (complete)
 
-Real KYC workflow behind the `PROVISIONAL`/`FULLY_VERIFIED` states already modeled, ratings-driven trust score, re-verification cadence.
+A guarded verification-status state machine (ADR 0016, same discipline as `ServiceRequest`'s) replaces the plain-field write that existed since Phase 0. KYC document submission (Provider self-service) and review/tier decisions (Admin, Ch61's "provider-verification workflow backend") are separate, explicit actions — reviewing a document never auto-changes a tier. Re-verification cadence with de-listing triggers (`sweepLapsedVerifications()`, the same Admin-triggered manual-sweep pattern as Matching's timeout expiry) is real. `AuditLog` is now actually wired to real write paths (document review, tier changes, lapsed de-listing) for the first time since Phase 0. Trust score (Ch58) — Bayesian-adjusted rating × verification multiplier, deliberately distinct from raw `ratingAverage` — is computed and stored, feeding a Ch84 ranking model that doesn't exist yet.
+
+**Not fully done**: no document-sufficiency automation (by design — Ch98 doesn't specify one); `fileUrl` is an unvalidated client-supplied reference, no real file storage/scanning; commission-rate changes are still not audit-logged (only verification-related writes are); re-verification sweep has no recurring scheduler, same manual-trigger posture as every other "Ch62 not built yet" item. See the Reconciliation Notes below.
 
 ## Phase 5 — Notifications, Mobile Apps (Ch32, Ch59, Ch64–74)
 
@@ -64,11 +66,14 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Docker Compose provided but unverified locally (Docker not found in this environment) | `docs/development.md`, `infrastructure/README.md` | Whenever Docker is available to test against |
 | No live `prisma migrate dev` has actually been run — schema, PostGIS/TimescaleDB SQL scripts, `nest build`, 51 unit tests, and a full DI-graph boot check were all validated, but not a real database round-trip (this session didn't have local Postgres credentials) | `docs/development.md` §Getting started | First person with real local DB credentials runs the documented steps |
 | Prisma pinned to 5.22.x; `prisma generate` reported 7.9.1 is current | `apps/api/package.json` | Before real feature development starts — re-verify no breaking changes in the Prisma 6/7 migration guide first |
-| `AdminProfile`/Admin module minimal; no verification-review or dispatch-override UI yet | `docs/domain-model.md`, Ch61 module | Phase 4 |
+| `AdminProfile`/Admin module: verification-review workflow now real (Phase 4); manual dispatch override (Ch61's other named responsibility) still not implemented | `docs/domain-model.md`, Ch61 module | Whenever manual dispatch override is needed |
 | No real AI provider behind `AiCapability`; all critical-path calls use their fallback | ADR 0007 | Phase 6 |
 | Field-level PII encryption, MFA, WAF/DDoS config not implemented | `docs/security.md` | Phase 7 (Ch93–95) |
 | Illustrative 15% commission rate used as the seed default | `prisma/seed.ts`, Ch6 §6.3.4 | Ch4's provider research produces a validated number |
-| `AuditLog` wired to only two write paths (commission-rate changes, verification-status changes are the intent; only the service method exists, not yet called from every relevant path) | `apps/api/src/modules/admin` | Phase 4 |
+| `AuditLog` now wired to verification-related write paths (Phase 4); commission-rate changes still not audit-logged | ADR 0003, ADR 0016 | Whenever commission-rate changes need the same audit trail |
+| Document-type taxonomy (`DRIVING_LICENSE`, etc.), re-verification cadence (30/180 days), and trust-score formula (Bayesian prior + verification multiplier) are all this bootstrap phase's own invention — Ch98/Ch58 haven't specified any of them | ADR 0016 | Ch58/Ch98 written at full depth |
+| `fileUrl` on KYC documents is an unvalidated client-supplied reference — no real file storage, virus scanning, or access control | ADR 0016 | Ch94 (Data Protection & Encryption Architecture) |
+| Trust score computed and stored but consumed by nothing yet (Ch84's ranking model doesn't exist) | ADR 0016 | Phase 6 (Ch84) |
 | `ServiceArea` cross-city RBAC scoping not enforced anywhere (role-based RBAC only) | ADR 0011, `docs/architecture.md` §6 | Phase 2, whenever the first cross-city query risk actually appears |
 | Ownership checks now also exist for cancel/accept/reject/job-status/rating (Phase 2), but `Payment` and `Vehicle` still have none | ADR 0011 Consequences | Phase 2+, as each remaining module gets built out |
 | No cleanup job for expired `OtpChallenge`/`RefreshToken` rows | ADR 0011 Consequences | Ch62 (Background Jobs) |
