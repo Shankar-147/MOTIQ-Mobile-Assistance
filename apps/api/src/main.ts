@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { RfcHttpExceptionFilter } from "./common/filters/rfc-http-exception.filter";
 import { RedisIoAdapter } from "./common/redis-io.adapter";
+import { correlationIdMiddleware } from "./common/correlation-id.middleware";
 
 async function bootstrap() {
   // rawBody: true attaches req.rawBody (Buffer) alongside the normally
@@ -14,6 +15,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(helmet());
+  app.use(correlationIdMiddleware);
   app.setGlobalPrefix("api/v1");
   app.useGlobalPipes(
     new ValidationPipe({

@@ -1,20 +1,29 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
-import { AuthenticatedUser, RequestStatus, UserRole } from "@motiq/types";
+import { AuthenticatedUser, ConsentType, RequestStatus, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
 import { Roles } from "../identity/auth/decorators/roles.decorator";
 import { RolesGuard } from "../identity/auth/guards/roles.guard";
+import { ConsentService } from "../consent/consent.service";
 import { RequestService } from "./request.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 
 @Controller("requests")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RequestController {
-  constructor(private readonly requestService: RequestService) {}
+  constructor(
+    private readonly requestService: RequestService,
+    private readonly consentService: ConsentService,
+  ) {}
 
+  // Ch128 — a request always carries a pickupLocation, so creating one IS
+  // location collection; the consent gate lives here rather than inside
+  // RequestService, since AuthenticatedUser.userId (the consent key) is
+  // only naturally available at the controller layer.
   @Post()
   @Roles(UserRole.CUSTOMER)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateServiceRequestDto) {
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateServiceRequestDto) {
+    await this.consentService.requireConsent(user.userId, ConsentType.LOCATION_TRACKING);
     return this.requestService.create(user.profileId, dto);
   }
 

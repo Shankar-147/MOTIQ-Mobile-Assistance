@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { PresenceStatus } from "@motiq/types";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
+import { consentApi } from "../../api/consentApi";
 import { connectTrackingSocket, disconnectTrackingSocket, sendPresenceHeartbeat } from "../../realtime/trackingSocket";
 import { startForegroundLocationTracking, stopLocationTracking } from "./locationTracking";
 import { registerForPushNotifications } from "../../notifications/pushRegistration";
@@ -64,6 +65,9 @@ export function GoOnlineScreen({ navigation }: Props) {
       return;
     }
     const position = await Location.getCurrentPositionAsync({});
+    // Ch128 — must precede any presence update carrying a location, which
+    // the backend now gates on this consent existing (ConsentService).
+    await consentApi.grantLocationTracking();
     await providerApi.updatePresence(PresenceStatus.ONLINE, {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,

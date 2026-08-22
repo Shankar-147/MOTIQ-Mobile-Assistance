@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConsentModule } from "../consent/consent.module";
 import { ProviderController } from "./provider.controller";
 import { ProviderService } from "./provider.service";
 
@@ -10,6 +11,7 @@ import { ProviderService } from "./provider.service";
  * through this service's exported method — never a direct cross-module query.
  */
 @Module({
+  imports: [ConsentModule],
   controllers: [ProviderController],
   providers: [ProviderService],
   exports: [ProviderService],

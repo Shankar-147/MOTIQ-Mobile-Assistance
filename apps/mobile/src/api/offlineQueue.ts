@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { CreateServiceRequestDto } from "@motiq/types";
 import { requestApi } from "./requestApi";
+import { consentApi } from "./consentApi";
 
 const QUEUE_STORAGE_KEY = "motiq.offlineRequestQueue";
 
@@ -43,6 +44,16 @@ export async function flushOfflineQueue(): Promise<{ succeeded: string[]; failed
   const remaining: QueuedRequest[] = [];
   const succeeded: string[] = [];
   const failed: string[] = [];
+
+  // Ch128 — a request queued while offline was queued before this device
+  // could have granted consent to the server; grant it once up front rather
+  // than per-item, since it's the same consent for every queued request.
+  try {
+    await consentApi.grantLocationTracking();
+  } catch {
+    // If this fails, each create() below will fail too and stay queued —
+    // no need to special-case it here.
+  }
 
   for (const item of queue) {
     try {
