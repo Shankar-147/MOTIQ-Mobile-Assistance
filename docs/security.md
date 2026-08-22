@@ -39,7 +39,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## Audit logging
 
-- `AuditLog` entity (see `docs/domain-model.md`) and `AdminService.recordAuditLog()` exist from day one, with commission-rate changes and provider-verification-status changes identified as the two write paths with the most direct fraud/dispute exposure in this bootstrap phase's scope. **Not yet actually called from those write paths** — the entity and the method exist, but nothing invokes it yet. Tracked in `docs/roadmap.md`'s Reconciliation Notes; do not assume audit coverage exists until that's wired in.
+- `AuditLog` entity (see `docs/domain-model.md`) and `AdminService.recordAuditLog()` exist from day one. **As of Phase 4** (ADR 0016), it's actually wired to real write paths: KYC document review (approve/reject) and provider-verification-tier transitions (including lapsed-verification de-listing). Commission-rate changes (Ch34/ADR 0003) are **still not audit-logged** — tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.
 
 ## Sensitive data handling
 

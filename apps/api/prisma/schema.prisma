@@ -108,6 +108,20 @@ enum NotificationStatus {
   FAILED
 }
 
+enum VerificationDocumentType {
+  DRIVING_LICENSE
+  VEHICLE_REGISTRATION
+  IDENTITY_PROOF
+  ADDRESS_PROOF
+  OTHER
+}
+
+enum VerificationDocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(uuid())
   phone        String   @unique
@@ -124,6 +138,7 @@ model User {
   auditLogs       AuditLog[]     @relation("ActorAuditLogs")
   notifications   Notification[]
   refreshTokens   RefreshToken[]
+  reviewedVerificationDocuments ProviderVerificationDocument[]
 
   @@map("users")
 }
@@ -184,22 +199,52 @@ model ProviderProfile {
   serviceAreaId      String
   serviceArea        ServiceArea                @relation(fields: [serviceAreaId], references: [id])
   verificationStatus ProviderVerificationStatus @default(UNVERIFIED)
+  /// Ch98's re-verification cadence: when the current tier was last granted.
+  /// Null for a provider who has never been PROVISIONAL/FULLY_VERIFIED. See ADR 0016.
+  lastVerifiedAt     DateTime?
   presenceStatus     PresenceStatus             @default(OFFLINE)
   lastSeenAt         DateTime?
   ratingAverage      Decimal                    @default(0) @db.Decimal(3, 2)
   completedJobCount  Int                        @default(0)
+  /// Ch58 — Bayesian-adjusted rating x verification-tier multiplier, feeding
+  /// Ch84's future ranking model. Recomputed by ProviderService whenever
+  /// ratingAverage/completedJobCount/verificationStatus change — see ADR 0016.
+  trustScore         Decimal                    @default(0) @db.Decimal(3, 2)
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
   currentLocation Unsupported("geography(Point,4326)")?
 
-  fleetVehicles   ProviderFleetVehicle[]
-  assignments     Assignment[]
-  ratingsReceived Rating[]               @relation("ProviderRatings")
-  locationPings   LocationPing[]
+  fleetVehicles         ProviderFleetVehicle[]
+  assignments           Assignment[]
+  ratingsReceived       Rating[]                       @relation("ProviderRatings")
+  locationPings         LocationPing[]
+  verificationDocuments ProviderVerificationDocument[]
 
   @@index([serviceAreaId, verificationStatus, presenceStatus])
   @@map("provider_profiles")
+}
+
+/// Ch98's KYC document submissions. fileUrl is a client-supplied reference
+/// (e.g. a pre-signed upload URL) — no real file storage/virus-scanning
+/// integration exists yet (Ch94's secure-file-handling is future work), so
+/// this is honestly a reference field, not a verified upload. See ADR 0016.
+model ProviderVerificationDocument {
+  id                String                     @id @default(uuid())
+  providerProfileId String
+  providerProfile   ProviderProfile            @relation(fields: [providerProfileId], references: [id])
+  documentType      VerificationDocumentType
+  fileUrl           String
+  status            VerificationDocumentStatus @default(PENDING)
+  reviewedByUserId  String?
+  reviewedByUser    User?                      @relation(fields: [reviewedByUserId], references: [id])
+  reviewNotes       String?
+  submittedAt       DateTime                   @default(now())
+  reviewedAt        DateTime?
+
+  @@index([providerProfileId, status])
+  @@index([status])
+  @@map("provider_verification_documents")
 }
 
 /// Ch40's raw GPS trail store, deferred from Phase 0. Plain lat/lng Floats,

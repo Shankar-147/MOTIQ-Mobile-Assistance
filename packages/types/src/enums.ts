@@ -95,3 +95,18 @@ export enum NotificationDeliveryTier {
   CRITICAL = "CRITICAL",
   BEST_EFFORT = "BEST_EFFORT",
 }
+
+/** Ch98 — KYC document submission types. */
+export enum VerificationDocumentType {
+  DRIVING_LICENSE = "DRIVING_LICENSE",
+  VEHICLE_REGISTRATION = "VEHICLE_REGISTRATION",
+  IDENTITY_PROOF = "IDENTITY_PROOF",
+  ADDRESS_PROOF = "ADDRESS_PROOF",
+  OTHER = "OTHER",
+}
+
+export enum VerificationDocumentStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}

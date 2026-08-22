@@ -13,9 +13,12 @@ The authentication identity, independent of role-specific data. Holds `phone` (p
 1:1 with `User` where `role = CUSTOMER`. Display name, preferred language (English/Hindi/Tamil, per Ch16), default `serviceAreaId` (last-known city, a convenience, not an access boundary).
 
 ### ProviderProfile
-1:1 with `User` where `role = PROVIDER`. Business/individual name, `serviceAreaId` (the one city this provider operates in — see ADR 0006), `verificationStatus` (`UNVERIFIED | PROVISIONAL | FULLY_VERIFIED | SUSPENDED | DELISTED` — **never a boolean**, ADR 0005/Ch98), `currentLocation` (PostGIS `geography(Point,4326)`, nullable when offline), `presenceStatus` (`OFFLINE | ONLINE | BUSY`), `lastSeenAt`, and aggregate `ratingAverage`/`completedJobCount` (denormalized read-models fed by `Rating`, per Ch58).
+1:1 with `User` where `role = PROVIDER`. Business/individual name, `serviceAreaId` (the one city this provider operates in — see ADR 0006), `verificationStatus` (`UNVERIFIED | PROVISIONAL | FULLY_VERIFIED | SUSPENDED | DELISTED` — **never a boolean**, ADR 0005/Ch98, transitions guarded by a state machine as of Phase 4, ADR 0016), `lastVerifiedAt` (when the current tier was granted — starts the Ch98 re-verification clock), `currentLocation` (PostGIS `geography(Point,4326)`, nullable when offline), `presenceStatus` (`OFFLINE | ONLINE | BUSY`), `lastSeenAt`, `ratingAverage`/`completedJobCount` (denormalized read-models fed by `Rating`, per Ch58), and `trustScore` (Ch58 — a Bayesian-adjusted, verification-weighted score, deliberately distinct from raw `ratingAverage`; see ADR 0016).
 
 **Why `presenceStatus`/`currentLocation` live here rather than a separate `Availability` table:** at this phase's scope, presence is a single current-state fact per provider, not a scheduled-windows concept. Ch76 (Presence & Connection State Management) owns the real heartbeat/reconnection-storm design later; this is a deliberately minimal placeholder for that, not a final answer — noted in Reconciliation Notes.
+
+### ProviderVerificationDocument
+Ch98's KYC submission (implemented Phase 4, ADR 0016). `providerProfileId`, `documentType` (`DRIVING_LICENSE | VEHICLE_REGISTRATION | IDENTITY_PROOF | ADDRESS_PROOF | OTHER` — this bootstrap phase's own taxonomy, Ch98 hasn't specified one), `fileUrl` (a client-supplied reference — no real file storage/scanning integration exists), `status` (`PENDING | APPROVED | REJECTED`), `reviewedByUserId`/`reviewNotes`/`reviewedAt`. Reviewing a document does **not** automatically change the provider's overall `verificationStatus` — that's a separate, explicit admin action (see ADR 0016's reasoning).
 
 ### AdminProfile
 1:1 with `User` where `role` is `ADMIN` or `SUPPORT`. Minimal in this phase (department/notes) — Ch61's Admin & Operations Service will extend this.
@@ -79,6 +82,7 @@ CustomerProfile 1—* ServiceRequest
 ServiceRequest *—1 Vehicle (nullable, traceability only — see snapshot note)
 ServiceRequest 1—* Assignment *—1 ProviderProfile
 ProviderProfile 1—* LocationPing
+ProviderProfile 1—* ProviderVerificationDocument *—1 User (reviewedByUser, nullable)
 ServiceRequest 1—1 Payment *—1 CommissionRate
 ServiceRequest 1—1 Rating
 ```
