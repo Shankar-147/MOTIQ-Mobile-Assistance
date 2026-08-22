@@ -1,6 +1,6 @@
 # 0009 — Managed Message Queue for the Event Backbone
 
-**Status:** Provisional
+**Status:** Provisional (production transport still undecided) — **the in-process adapter this ADR describes is now actually implemented**, see ADR 0013
 **Bible chapter to reconcile with:** Ch30 (Sync vs. Async Communication Design), Ch31 (Event-Driven Backbone Design)
 
 ## Context
@@ -9,7 +9,7 @@ Ch31 requires an event catalog (minimum: `RequestCreated`, `ProviderAssigned`, `
 
 ## Decision
 
-For this bootstrap phase, the event backbone is defined as an interface (`DomainEventPublisher` / `DomainEventConsumer`) with an in-process, in-memory implementation (a simple NestJS `EventEmitter`-based adapter) — enough to let modules publish and subscribe to the Ch31 event catalog without coupling them directly to each other (preserving ADR 0001's module-boundary rule), but without standing up real infrastructure not yet justified at zero traffic. The production adapter is left as an explicit open choice between a managed SQS-class queue (Ch31's stated default) and self-hosted alternatives, to be made as a dedicated ADR once Chapter 101 (Cloud Architecture) picks a cloud provider — this bootstrap phase deliberately does not pick AWS/GCP/Azure (per the master prompt's Section 4.5, avoiding premature cloud lock-in).
+For this bootstrap phase, the event backbone is defined as an interface (`DomainEventPublisher` / `DomainEventConsumer`) with an in-process, in-memory implementation — enough to let modules publish and subscribe to the Ch31 event catalog without coupling them directly to each other (preserving ADR 0001's module-boundary rule), but without standing up real infrastructure not yet justified at zero traffic. **Update (Phase 2, ADR 0013):** this is no longer just a planned interface — `@nestjs/event-emitter` is wired in for real, and `RequestCreated`/`RequestCompleted` genuinely decouple Request from Matching/Payment. The production adapter is still left as an explicit open choice between a managed SQS-class queue (Ch31's stated default) and self-hosted alternatives, to be made as a dedicated ADR once Chapter 101 (Cloud Architecture) picks a cloud provider — this bootstrap phase deliberately does not pick AWS/GCP/Azure (per the master prompt's Section 4.5, avoiding premature cloud lock-in).
 
 ## Alternatives Considered
 

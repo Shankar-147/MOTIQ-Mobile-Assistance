@@ -1,5 +1,5 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { AuthenticatedUser, UserRole } from "@motiq/types";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { AuthenticatedUser, RequestStatus, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
 import { Roles } from "../identity/auth/decorators/roles.decorator";
@@ -25,11 +25,24 @@ export class RequestController {
     // Data-access-layer scoping (Ch51, CLAUDE.md rule 8): a customer may only
     // read their own requests — role alone (checked by RolesGuard above)
     // isn't sufficient. Provider/Admin/Support access is unrestricted here
-    // in this bootstrap phase; a real Assignment-based check for providers
-    // is Phase 2's job (Ch53's Matching engine owns that relationship).
+    // in this bootstrap phase — see docs/roadmap.md's Reconciliation Notes.
     if (user.role === UserRole.CUSTOMER && request.customerProfileId !== user.profileId) {
       throw new ForbiddenException("You can only view your own service requests.");
     }
     return request;
+  }
+
+  // The provider-side equivalent (PROVIDER_EN_ROUTE -> ... -> COMPLETED /
+  // CANCELLED_BY_PROVIDER) lives on MatchingController, keyed by assignment —
+  // see docs/decisions/0013-*.md for why cancellation and job-progress are
+  // split across two controllers rather than both living here.
+  @Patch(":id/cancel")
+  @Roles(UserRole.CUSTOMER)
+  async cancel(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    const request = await this.requestService.findById(id);
+    if (request.customerProfileId !== user.profileId) {
+      throw new ForbiddenException("You can only cancel your own service requests.");
+    }
+    return this.requestService.transition(id, RequestStatus.CANCELLED_BY_CUSTOMER);
   }
 }
