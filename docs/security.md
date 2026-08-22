@@ -4,14 +4,19 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## Authentication
 
-- OTP-based phone login for Customer/Provider (Ch50); bcrypt/argon2 password hashing for Admin/Support — never a homemade hash, never plaintext, ever, under any circumstance.
-- Short-lived JWT access tokens with refresh-token rotation (Ch33). Refresh tokens are stored hashed server-side, not as a plaintext lookup value.
+**Implemented as of Phase 1** — see `docs/decisions/0011-*.md`.
+
+- OTP-based phone login/registration for Customer/Provider (Ch50), `bcryptjs` password hashing for Admin/Support — never a homemade hash, never plaintext, ever, under any circumstance. Admin/Support accounts are never publicly self-registered.
+- Short-lived JWT access tokens with **opaque, DB-backed refresh-token rotation** (Ch33) — refresh tokens are random strings, stored only as a SHA-256 hash, revoked and replaced on every use. A JWT can't be genuinely revoked without a blocklist, which is why refresh tokens deliberately aren't JWTs here.
+- OTP codes are hashed at rest too (SHA-256 — a fast hash is the right call for a 6-digit code; the real defense is the 5-minute expiry, 30-second resend cooldown, and 5-attempt cap, not the hash algorithm).
 - No secrets, tokens, or credentials committed to git. `.env` is gitignored; `.env.example` documents every required variable with a placeholder, never a real value.
 
 ## Authorization
 
+**Implemented as of Phase 1**, partially — see `docs/architecture.md` §6 for exactly what's covered so far.
+
 - Four roles: `CUSTOMER, PROVIDER, ADMIN, SUPPORT` (Ch33) — each with a distinct, explicit permission set. No "isAdmin" boolean flags bolted onto a generic user role.
-- Enforced at both the controller (guards) and data-access (repository query scoping) layers — a role check in a controller alone is not sufficient if the underlying query can still return cross-`ServiceArea` or cross-role data.
+- Enforced at the controller layer via `JwtAuthGuard` + `RolesGuard` (`@Roles(...)`), applied per-route. A first data-access-layer example exists (`RequestController` — a Customer can only read their own requests), but this is not yet applied systematically across every module, and `ServiceArea` cross-city scoping is not enforced anywhere yet — both are tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.
 
 ## Input validation
 
@@ -34,7 +39,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## Audit logging
 
-- `AuditLog` entity (see `docs/domain-model.md`) exists from day one. Every commission-rate change and every provider-verification-status change is logged with actor, before/after state, and timestamp — these are the two write paths with the most direct fraud/dispute exposure in this bootstrap phase's scope.
+- `AuditLog` entity (see `docs/domain-model.md`) and `AdminService.recordAuditLog()` exist from day one, with commission-rate changes and provider-verification-status changes identified as the two write paths with the most direct fraud/dispute exposure in this bootstrap phase's scope. **Not yet actually called from those write paths** — the entity and the method exist, but nothing invokes it yet. Tracked in `docs/roadmap.md`'s Reconciliation Notes; do not assume audit coverage exists until that's wired in.
 
 ## Sensitive data handling
 
@@ -46,7 +51,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 - Parameterized queries only — the one raw-SQL escape hatch (PostGIS nearest-provider lookups, ADR 0002) uses Prisma's `$queryRaw` tagged-template form, which parameterizes interpolated values; string-concatenated SQL is never permitted.
 - CORS restricted to known origins (`apps/web`, and later `apps/mobile`'s API gateway) — not `*`.
-- Helmet-equivalent secure HTTP headers enabled by default on the NestJS app.
+- `helmet` middleware enabled in `main.ts` for secure default HTTP headers.
 
 ## What this phase does not implement
 

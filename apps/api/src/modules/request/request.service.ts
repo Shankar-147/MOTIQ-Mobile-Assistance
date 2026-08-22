@@ -9,12 +9,12 @@ import { assertValidTransition } from "./request-state-machine";
 export class RequestService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateServiceRequestDto) {
+  async create(customerProfileId: string, dto: CreateServiceRequestDto) {
     const vehicleSnapshot = await this.resolveVehicleSnapshot(dto.vehicleId);
 
     const created = await this.prisma.serviceRequest.create({
       data: {
-        customerProfileId: dto.customerProfileId,
+        customerProfileId,
         serviceAreaId: dto.serviceAreaId,
         issueType: dto.issueType,
         vehicleId: dto.vehicleId,

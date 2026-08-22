@@ -1,14 +1,14 @@
 # MOTIQ — Phased Implementation Roadmap
 
-Companion to `docs/architecture.md`. This bootstrap phase (Phase 0) is now complete; this is the proposed sequencing for what comes next. Per the master bootstrap prompt's Section 12, **do not begin Phase 1 automatically** — this is a plan for the next master prompt to direct, not a green light to keep building.
+Companion to `docs/architecture.md`. Phases 0 and 1 are complete; this is the proposed sequencing for what comes next.
 
-## Phase 0 — Architecture & Bootstrap (this phase, complete)
+## Phase 0 — Architecture & Bootstrap (complete)
 
 Environment assessment, technology stack, architecture analysis, domain model, repository structure, `CLAUDE.md`, initial config, git setup, and a working (but feature-empty) skeleton: NestJS modular monolith with real module boundaries, a Prisma schema implementing the full domain model, a fully-implemented `ServiceRequest` state machine with tests, a fully-implemented commission-split calculation with tests, a `ServiceArea` CRUD exemplar, and a Next.js Admin Console shell.
 
-## Phase 1 — Identity & Auth (Ch33, Ch50, Ch51)
+## Phase 1 — Identity & Auth (Ch33, Ch50, Ch51) (complete)
 
-OTP-based phone login for Customer/Provider, password login for Admin/Support, JWT issuance with refresh rotation, guard-based RBAC enforced at both controller and data-access layers. Nothing past this phase should be built against a fake/hardcoded `customerProfileId` the way this bootstrap's `RequestController` currently does.
+OTP-based phone login/registration for Customer/Provider (`POST /auth/otp/request`, `POST /auth/otp/verify`), password login for Admin/Support (`POST /auth/admin/login`), JWT access tokens with opaque DB-backed refresh-token rotation (`POST /auth/refresh`), and guard-based RBAC (`JwtAuthGuard` + `RolesGuard` + `@Roles(...)`) — see `docs/decisions/0011-*.md` for the full design. `RequestController.create()` now derives `customerProfileId` from the authenticated session instead of trusting client input, closing the exact gap this phase existed to close. **Not fully done**: RBAC is role-based only so far — `ServiceArea` cross-city scoping isn't enforced anywhere yet, and only `RequestController`'s read endpoint has a real ownership check. See the Reconciliation Notes below.
 
 ## Phase 2 — Core Transaction Flow (Ch52, Ch53, Ch56, Ch57)
 
@@ -57,3 +57,8 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Field-level PII encryption, MFA, WAF/DDoS config not implemented | `docs/security.md` | Phase 7 (Ch93–95) |
 | Illustrative 15% commission rate used as the seed default | `prisma/seed.ts`, Ch6 §6.3.4 | Ch4's provider research produces a validated number |
 | `AuditLog` wired to only two write paths (commission-rate changes, verification-status changes are the intent; only the service method exists, not yet called from every relevant path) | `apps/api/src/modules/admin` | Phase 4 |
+| `ServiceArea` cross-city RBAC scoping not enforced anywhere (role-based RBAC only) | ADR 0011, `docs/architecture.md` §6 | Phase 2, whenever the first cross-city query risk actually appears |
+| Ownership/data-access-layer checks only exist for `RequestController`'s read endpoint — `Assignment`, `Payment`, `Rating`, `Vehicle` still need the same treatment | ADR 0011 Consequences | Phase 2+, as each module gets built out |
+| No cleanup job for expired `OtpChallenge`/`RefreshToken` rows | ADR 0011 Consequences | Ch62 (Background Jobs) |
+| `bcryptjs` chosen over `argon2` specifically because this environment's native build toolchain was never confirmed | ADR 0011 | Ch93 (Identity & Access Security), once toolchain is confirmed |
+| Guards applied per-route, not globally via `APP_GUARD` | ADR 0011 | Revisit once the number of protected routes grows past what's easy to eyeball |
