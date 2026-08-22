@@ -204,6 +204,19 @@ export class MatchingService {
     });
   }
 
+  /**
+   * Used by TrackingGateway (Ch54) to find which ServiceRequest a provider's
+   * location update should broadcast to — assumes a provider works one job
+   * at a time (a reasonable bootstrap-scope simplification; nothing in the
+   * schema enforces it), so at most one ACCEPTED assignment exists per
+   * provider at once.
+   */
+  async getActiveAssignmentForProvider(providerProfileId: string) {
+    return this.prisma.assignment.findFirst({
+      where: { providerProfileId, status: AssignmentStatus.ACCEPTED },
+    });
+  }
+
   /** Used by PricingService (fare's distance input) and RatingService (who to rate). */
   async getAcceptedAssignment(serviceRequestId: string) {
     const assignment = await this.prisma.assignment.findFirst({

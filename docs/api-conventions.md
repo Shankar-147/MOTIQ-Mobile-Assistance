@@ -86,3 +86,14 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 ## Third-party integration boundary
 
 No controller or service calls a third-party SDK (Maps, Razorpay, SMS) directly — every integration goes through an internal adapter interface (Ch32), enabling the Ch35 circuit-breaker/fallback pattern and protecting against vendor lock-in.
+
+## WebSocket protocol (Ch54, Ch75–77 — implemented as of Phase 3, ADR 0015)
+
+`ws://.../tracking` (Socket.IO namespace). Authenticate once at connection via `auth: { token: "<same JWT access token as REST>" }` in the Socket.IO handshake options (or an `Authorization: Bearer` header) — an invalid/missing token disconnects immediately. Not wrapped in the RFC 7807 envelope; each event below is its own small payload.
+
+| Direction | Event | Payload | Notes |
+|---|---|---|---|
+| Provider → server | `location:update` | `{ latitude, longitude }` | Throttled server-side (`LOCATION_UPDATE_MIN_INTERVAL_MS`); ack: `{ accepted, reason? }`. |
+| Provider → server | `presence:heartbeat` | *(none)* | Bumps `lastSeenAt`; ack: `{ acknowledged }`. |
+| Customer/Admin/Support → server | `subscribe:request` | `{ serviceRequestId }` | Joins the room for that request; ack: `{ subscribed, reason? }` — a Customer subscribing to a request they don't own gets `subscribed: false`. |
+| Server → room `service-request:{id}` | `location:update` | `{ providerProfileId, latitude, longitude, eta }` | `eta` is `{ estimatedMinutes, minMinutes, maxMinutes, distanceMeters }` or `null` if not computable — always a range, never a bare number (Ch1's "never false precision"). |

@@ -118,4 +118,23 @@ export class ProviderService {
       LIMIT ${limit}
     `;
   }
+
+  /**
+   * Ch54's ETA recomputation input: current provider-to-pickup distance,
+   * recomputed on every accepted location update. Returns null if either
+   * point is unavailable (provider went offline mid-job, e.g.) rather than
+   * throwing — a missing ETA is a normal, expected transient state on a live
+   * tracking feed, not an error.
+   */
+  async getDistanceToServiceRequestPickup(
+    providerProfileId: string,
+    serviceRequestId: string,
+  ): Promise<number | null> {
+    const rows = await this.prisma.$queryRaw<{ distanceMeters: number | null }[]>`
+      SELECT ST_Distance(pp."currentLocation", sr."pickupLocation") AS "distanceMeters"
+      FROM provider_profiles pp, service_requests sr
+      WHERE pp.id = ${providerProfileId} AND sr.id = ${serviceRequestId}
+    `;
+    return rows[0]?.distanceMeters ?? null;
+  }
 }
