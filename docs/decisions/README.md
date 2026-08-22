@@ -1,0 +1,35 @@
+# Architecture Decision Records (ADR) Index
+
+This mirrors the process the Bible will formally define in **Chapter 36**; kept compatible now so these records fold into that chapter with minimal rework when it's written.
+
+## Template
+
+```markdown
+# NNNN — Title
+
+**Status:** Provisional | Confirmed
+**Bible chapter to reconcile with:** Ch. NN — Chapter Name
+**Mission commitment served (Ch1 §1.4.2):** verification | matching | pricing | data-compounding
+
+## Context
+## Decision
+## Alternatives Considered
+## Consequences
+```
+
+`Confirmed` means the Bible's condensed chapters already state this as a binding decision (see `docs/handbook/README.md`'s binding-constraint rule) and this ADR is just recording how the bootstrap implements it. `Provisional` means this is a genuinely open decision this bootstrap phase made in the Bible's silence, to be revisited when the corresponding full chapter is written.
+
+## Index
+
+| # | Title | Status | Bible chapter |
+|---|---|---|---|
+| 0001 | [Modular monolith, NestJS](0001-modular-monolith-nestjs-architecture.md) | Confirmed | Ch25, Ch26, Ch48 |
+| 0002 | [PostgreSQL + PostGIS + Prisma](0002-postgresql-prisma-postgis.md) | Confirmed (Prisma choice: Provisional) | Ch37–39 |
+| 0003 | [Configurable commission, auditable payment split](0003-configurable-commission-and-auditable-payment-split.md) | Confirmed | Ch6, Ch34, Ch57 |
+| 0004 | [Service request state machine](0004-service-request-state-machine.md) | Confirmed (timeout values: Provisional) | Ch19, Ch52, Ch53 |
+| 0005 | [Two-tier provider verification status](0005-two-tier-provider-verification-status.md) | Confirmed | Ch7 §7.3.2, Ch98 |
+| 0006 | [Service area / city scoping](0006-service-area-scoping-for-cold-start.md) | Provisional | Ch7 |
+| 0007 | [AI as additive capability, never load-bearing](0007-ai-as-additive-capability-not-load-bearing.md) | Confirmed | Ch1 §1.6.2, Ch90, Ch91 |
+| 0008 | [Web admin console vs. mobile customer/provider apps](0008-web-admin-console-vs-mobile-customer-provider-apps.md) | Provisional | Ch64, Ch137 |
+| 0009 | [Managed message queue for the event backbone](0009-managed-message-queue-for-event-backbone.md) | Provisional | Ch31 |
+| 0010 | [Monorepo repository structure](0010-monorepo-repository-structure.md) | Provisional | Ch24, Ch48 |

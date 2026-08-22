@@ -1,0 +1,366 @@
+// MOTIQ data model. Mirrors docs/domain-model.md exactly — if you change one, change both.
+// PostGIS geography columns are declared `Unsupported(...)` because Prisma's schema DSL doesn't
+// natively model them; they are queried via $queryRaw only. See docs/decisions/0002-*.md and
+// prisma/migrations/*_add_postgis/migration.sql for the hand-written column/index definitions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+  SUPPORT
+}
+
+enum VehicleType {
+  TWO_WHEELER
+  CAR
+  COMMERCIAL
+}
+
+/// Ch2 §2.4.2 — binding, verbatim breakdown taxonomy.
+enum IssueType {
+  TOW
+  REPAIR
+  FUEL
+  FLAT_TYRE
+  BATTERY_JUMP
+  OTHER
+}
+
+/// Ch19 — the canonical Service Request state machine. See ADR 0004.
+enum RequestStatus {
+  REQUESTED
+  MATCHING
+  ASSIGNED
+  PROVIDER_ACCEPTED
+  PROVIDER_EN_ROUTE
+  ARRIVED
+  SERVICE_IN_PROGRESS
+  COMPLETED
+  CANCELLED_BY_CUSTOMER
+  CANCELLED_BY_PROVIDER
+  EXPIRED
+  FAILED
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ACCEPTED
+  REJECTED
+  TIMED_OUT
+}
+
+/// Ch98 — never a boolean. See ADR 0005.
+enum ProviderVerificationStatus {
+  UNVERIFIED
+  PROVISIONAL
+  FULLY_VERIFIED
+  SUSPENDED
+  DELISTED
+}
+
+enum PresenceStatus {
+  OFFLINE
+  ONLINE
+  BUSY
+}
+
+/// Separate from RequestStatus by design — see ADR 0004.
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+/// Ch7 §7.6.2 — the four-phase cold-start playbook.
+enum ServiceAreaLaunchPhase {
+  SUPPLY_SEEDING
+  CONTROLLED_DEMAND
+  LIQUIDITY_GROWTH
+  STEADY_STATE
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+}
+
+/// Ch79 — SOS/safety notifications are always CRITICAL, never best-effort.
+enum NotificationDeliveryTier {
+  CRITICAL
+  BEST_EFFORT
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String?
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customerProfile CustomerProfile?
+  providerProfile ProviderProfile?
+  adminProfile    AdminProfile?
+  auditLogs       AuditLog[]     @relation("ActorAuditLogs")
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model CustomerProfile {
+  id                   String       @id @default(uuid())
+  userId               String       @unique
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName          String
+  preferredLanguage    String       @default("en")
+  defaultServiceAreaId String?
+  defaultServiceArea   ServiceArea? @relation(fields: [defaultServiceAreaId], references: [id])
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  vehicles        Vehicle[]
+  serviceRequests ServiceRequest[]
+  ratingsGiven    Rating[]         @relation("CustomerRatings")
+
+  @@map("customer_profiles")
+}
+
+model ProviderProfile {
+  id                 String                     @id @default(uuid())
+  userId             String                     @unique
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName       String
+  serviceAreaId      String
+  serviceArea        ServiceArea                @relation(fields: [serviceAreaId], references: [id])
+  verificationStatus ProviderVerificationStatus @default(UNVERIFIED)
+  presenceStatus     PresenceStatus             @default(OFFLINE)
+  lastSeenAt         DateTime?
+  ratingAverage      Decimal                    @default(0) @db.Decimal(3, 2)
+  completedJobCount  Int                        @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  currentLocation Unsupported("geography(Point,4326)")?
+
+  fleetVehicles   ProviderFleetVehicle[]
+  assignments     Assignment[]
+  ratingsReceived Rating[]               @relation("ProviderRatings")
+
+  @@index([serviceAreaId, verificationStatus, presenceStatus])
+  @@map("provider_profiles")
+}
+
+model AdminProfile {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@map("admin_profiles")
+}
+
+model Vehicle {
+  id                String          @id @default(uuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  vehicleType       VehicleType
+  make              String
+  model             String
+  year              Int?
+  plateNumber       String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  serviceRequests ServiceRequest[]
+
+  @@map("vehicles")
+}
+
+/// Ch37 — deliberately distinct from Vehicle; fixes the V0 naming collision.
+model ProviderFleetVehicle {
+  id                String          @id @default(uuid())
+  providerProfileId String
+  providerProfile   ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  vehicleType       VehicleType
+  make              String
+  model             String
+  plateNumber       String
+  createdAt         DateTime        @default(now())
+
+  @@map("provider_fleet_vehicles")
+}
+
+/// First-class city/launch-region entity — see ADR 0006.
+model ServiceArea {
+  id          String                 @id @default(uuid())
+  name        String                 @unique
+  launchPhase ServiceAreaLaunchPhase @default(SUPPLY_SEEDING)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  boundary Unsupported("geography(Polygon,4326)")?
+
+  providers        ProviderProfile[]
+  serviceRequests  ServiceRequest[]
+  commissionRates  CommissionRate[]
+  customerDefaults CustomerProfile[]
+
+  @@map("service_areas")
+}
+
+/// Versioned, never a code constant — see ADR 0003.
+model CommissionRate {
+  id             String      @id @default(uuid())
+  serviceAreaId  String
+  serviceArea    ServiceArea @relation(fields: [serviceAreaId], references: [id])
+  ratePercentage Decimal     @db.Decimal(5, 2)
+  effectiveFrom  DateTime
+  createdAt      DateTime    @default(now())
+
+  payments Payment[]
+
+  @@index([serviceAreaId, effectiveFrom])
+  @@map("commission_rates")
+}
+
+model ServiceRequest {
+  id                String        @id @default(uuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  serviceAreaId     String
+  serviceArea       ServiceArea   @relation(fields: [serviceAreaId], references: [id])
+  issueType         IssueType
+  status            RequestStatus @default(REQUESTED)
+  description       String?
+
+  // Nullable at the Prisma-client level even though conceptually every request has one:
+  // a required Unsupported field can't be supplied through Prisma's typed create() input
+  // at all, which makes the client-generated create signature unconstructable. It's set
+  // via the raw-SQL UPDATE immediately after creation in RequestService.create() — see
+  // docs/decisions/0002-postgresql-prisma-postgis.md.
+  pickupLocation Unsupported("geography(Point,4326)")?
+
+  // Vehicle snapshot at request-creation time — see docs/domain-model.md's "Why a snapshot" note.
+  vehicleId                  String?
+  vehicle                    Vehicle? @relation(fields: [vehicleId], references: [id])
+  vehicleSnapshotMake        String
+  vehicleSnapshotModel       String
+  vehicleSnapshotYear        Int?
+  vehicleSnapshotPlateNumber String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments Assignment[]
+  payment     Payment?
+  rating      Rating?
+
+  @@index([status])
+  @@index([serviceAreaId, status])
+  @@map("service_requests")
+}
+
+/// One offer of a ServiceRequest to one ProviderProfile — there can be several per request.
+model Assignment {
+  id                                      String                     @id @default(uuid())
+  serviceRequestId                        String
+  serviceRequest                          ServiceRequest             @relation(fields: [serviceRequestId], references: [id])
+  providerProfileId                       String
+  providerProfile                         ProviderProfile            @relation(fields: [providerProfileId], references: [id])
+  status                                  AssignmentStatus           @default(OFFERED)
+  /// Point-in-time snapshot — see ADR 0005 and Ch1 §1.6.2's Safety success layer.
+  providerVerificationStatusAtAssignment ProviderVerificationStatus
+  offeredAt                               DateTime                   @default(now())
+  respondedAt                             DateTime?
+  /// Optimistic lock (Ch43) — prevents double-assignment race conditions.
+  version                                 Int                        @default(0)
+
+  @@index([providerProfileId, status])
+  @@index([serviceRequestId])
+  @@map("assignments")
+}
+
+/// Every field here is binding per Ch6/Ch57 — see ADR 0003.
+model Payment {
+  id                   String         @id @default(uuid())
+  serviceRequestId     String         @unique
+  serviceRequest       ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  commissionRateId     String
+  commissionRate       CommissionRate @relation(fields: [commissionRateId], references: [id])
+  totalAmount          Decimal        @db.Decimal(12, 2)
+  commissionAmount     Decimal        @db.Decimal(12, 2)
+  providerPayoutAmount Decimal        @db.Decimal(12, 2)
+  status               PaymentStatus  @default(PENDING)
+  gatewayReference     String?
+  idempotencyKey       String         @unique
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@map("payments")
+}
+
+model Rating {
+  id                String          @id @default(uuid())
+  serviceRequestId  String          @unique
+  serviceRequest    ServiceRequest  @relation(fields: [serviceRequestId], references: [id])
+  customerProfileId String
+  customerProfile   CustomerProfile @relation("CustomerRatings", fields: [customerProfileId], references: [id])
+  providerProfileId String
+  providerProfile   ProviderProfile @relation("ProviderRatings", fields: [providerProfileId], references: [id])
+  stars             Int
+  comment           String?
+  createdAt         DateTime        @default(now())
+
+  @@map("ratings")
+}
+
+model Notification {
+  id           String                   @id @default(uuid())
+  userId       String
+  user         User                     @relation(fields: [userId], references: [id])
+  channel      NotificationChannel
+  category     String
+  deliveryTier NotificationDeliveryTier
+  payload      Json
+  status       NotificationStatus       @default(QUEUED)
+  sentAt       DateTime?
+  createdAt    DateTime                 @default(now())
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  actorUser   User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
