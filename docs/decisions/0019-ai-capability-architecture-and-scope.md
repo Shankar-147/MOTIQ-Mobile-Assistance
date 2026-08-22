@@ -1,0 +1,40 @@
+# 0019 — AI Capability Architecture: What Volume VIII This Phase Actually Builds
+
+**Status:** Provisional — **flags a gap between the master prompt's Phase 6 scope and Ch90's binding requirement; see below**
+**Bible chapters to reconcile with:** Ch80 (ML Architecture Overview), Ch81–82 (Feature/Data pipeline), Ch83 (Classifier), Ch84 (Ranking), Ch85 (ETA), Ch86 (Demand Forecasting), Ch87–89 (Training/Registry/Monitoring), Ch90 (AI Assistant), Ch91 (Governance)
+
+## Context
+
+ADR 0007 (Phase 0) defined `AiCapability` as a pluggable interface — `classifyIssueCategory()`, `rankProviders()`, `predictEta()`, `assistantReply()` — implemented then as an interface with no concrete provider, on the explicit condition that every critical-path call site has a deterministic fallback as its designed default. `docs/roadmap.md` scoped Phase 6 as "each shipped only once its deterministic fallback has been proven to work without it" — true as of Phase 4/5, since the core transaction flow, matching, and tracking all work with zero AI configured.
+
+Volume VIII (Ch80–91) is twelve chapters. Most of them (Ch81 Feature Store, Ch82 Data Pipeline, Ch86 Demand Forecasting, Ch87 Training Pipeline, Ch88 Model Registry, Ch89 Drift Monitoring, Ch91 Governance) presuppose a **trained-model lifecycle**: real historical data to train against, a real model to register/version/monitor, real production traffic to detect drift in. This bootstrap has never connected to a live database with real request/rating history (every phase's Reconciliation Notes have said so) — there is no historical data of any kind to train, register, or monitor a model against. Building a model registry with zero models to register, or a feature store with zero training pipeline consuming it, would be architecture theater: process scaffolding around a lifecycle that doesn't exist yet.
+
+## Decision
+
+**Built this phase**, as real, working code:
+
+- **Ch80's unifying serving module**: `apps/api/src/modules/ai/` (`AiModule`, `AiService`) — the concrete home for `AiCapability`, with each capability behind its own DI-token port (`ISSUE_CLASSIFIER`, `PROVIDER_RANKING`, `AI_ASSISTANT`), following the exact Ch32 adapter pattern already used for Payment/SMS/Push (ADR 0014, ADR 0017).
+- **Ch83's classifier**: `KeywordIssueClassifierAdapter` — deterministic keyword matching against Ch2's issue taxonomy, not a trained Naive Bayes model, because there is no labeled historical description→category data to train one on. Never gates request creation: `CreateServiceRequestDto.issueType` is still always the customer's own explicit choice (Ch83's own "confidence-threshold fallback to manual category selection," which this codebase already satisfied before Phase 6 even started — the classifier only powers an optional `POST /ai/classify-issue` suggestion).
+- **Ch84's ranking**: `WeightedScoreRankingAdapter` — a deterministic weighted score (distance + `trustScore`, Ch58/ADR 0016), not a trained learning-to-rank model, for the same no-training-data reason. Returns a per-candidate score breakdown, satisfying Ch84's binding "explainability required for provider-dispute resolution." `MatchingService.dispatch()` wraps the ranking call in a try/catch that falls back to the PostGIS query's own distance-sort order — Ch84/Ch35's non-negotiable fallback, now actually exercised as a fallback rather than being the only implementation.
+- **Ch85's ETA**: already implemented in Phase 3 (`tracking/eta.util.ts`) — not moved or duplicated here. That module's own header comment already documents it as "the first real implementation of ADR 0007's ETA fallback obligation."
+- **Ch90's AI Assistant**: a real `AnthropicAssistantAdapter` (Claude, via `@anthropic-ai/sdk`) behind `AI_ASSISTANT`, unconfigured in this environment (no API key) and degrading to `KeywordAssistantResponder` — a small hardcoded FAQ set, satisfying Ch90's "grounding/RAG against MOTIQ's own policy content only" literally: there is no document corpus or vector store to run real RAG against, so grounding means the fallback can *only* answer from this fixed set, never generate freely. The real adapter's system prompt scopes it to the same topics as a hallucination guardrail. Cost-per-conversation is tracked (`ai-cost.util.ts`) and capped (`AI_ASSISTANT_MAX_COST_USD_PER_CONVERSATION`, `AI_ASSISTANT_MAX_MESSAGES_PER_CONVERSATION`), per Ch90's binding requirement.
+
+**The Ch90 gap, flagged explicitly rather than silently worked around**: Ch90 requires "if [an emergency is] detected, the chatbot must redirect to the SOS path (Ch55)." Ch55 does not exist in this codebase — no phase has built it. `detectEmergencyIntent()` (a pure, deterministic, always-on pre-filter — never itself AI-based, since this is exactly the check that must never fail open on a slow/errored/hallucinating model call) still runs before any conversational response and still stops the assistant from attempting to "handle" an emergency conversationally, which is the part of Ch90 that IS achievable without Ch55. But it can only tell the user to contact real emergency services directly — it cannot redirect into an in-app SOS flow that was never built. **This is not a substitute for Ch55 and must not be read as satisfying it.**
+
+**Explicitly deferred, not silently skipped** (all added to `docs/roadmap.md`'s Reconciliation Notes):
+
+- Ch81 (Feature Store), Ch82 (ML Data Pipeline), Ch87 (Training Pipeline), Ch88 (Model Registry), Ch89 (Drift Monitoring) — no trained model exists for any of these to operate on.
+- Ch86 (Demand Forecasting) — no historical demand data exists; `ServiceArea` launch-phase cold-start handling (Ch7, ADR 0006) already covers what this bootstrap can responsibly do without one.
+- Ch91 (AI Governance) — bias/fairness review and AI-specific incident response are process/org commitments, not something a bootstrap session can fabricate a "governance dashboard" to simulate. The one governance-relevant piece that IS code — every `AiConversation` records whether it triggered `emergencyDetected`/`escalated`, giving a real future review process something to query — is built.
+
+## Alternatives Considered
+
+- **Build a real trained model anyway, using synthetic/seed data.** Rejected — a model "trained" on fabricated data would be worse than an honest heuristic: it would look like Ch83/84's real deliverable while actually encoding nothing real, and would need to be silently thrown away the moment real data exists. The heuristic adapters are explicit about being provisional; a fake-trained model would not be.
+- **Skip Ch90 entirely until Ch55 exists.** Rejected — Ch90's emergency-intent-detection requirement is independently valuable (stopping the assistant from conversationally engaging with an emergency) even without a real SOS system to hand off to, and building the assistant's non-emergency behavior doesn't need to wait on Ch55.
+- **Build Ch88's model registry as an empty scaffold "for later."** Rejected per CLAUDE.md's "no half-finished implementations" and "don't design for hypothetical future requirements" rules — a registry with nothing to register is speculative infrastructure, not a working feature.
+
+## Consequences
+
+- `POST /ai/classify-issue`, ranking, and the AI Assistant are all real, callable, tested code — not placeholders — but none of them are machine-learned in the way Ch83/84/85/86 ultimately intend. Revisit every deterministic adapter once real historical data exists (Phase 6's own successor, whenever that's scoped).
+- `AnthropicAssistantAdapter` has never been exercised against a real API key in this session — same caveat as every other unconfigured third-party adapter (Razorpay, Twilio, FCM).
+- The Ch90/Ch55 gap is a real, live risk if this assistant were exposed to end users before Ch55 exists: an emergency message gets a "call emergency services" reply, not an actual triggered response. Treat the AI Assistant as not production-ready for real users until Ch55 is built, regardless of how complete its non-emergency behavior looks.

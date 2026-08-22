@@ -148,6 +148,7 @@ model User {
   reviewedVerificationDocuments ProviderVerificationDocument[]
   pushDeviceTokens        PushDeviceToken[]
   notificationPreference  NotificationPreference?
+  aiConversations         AiConversation[]
 
   @@map("users")
 }
@@ -184,6 +185,43 @@ model NotificationPreference {
   updatedAt        DateTime @updatedAt
 
   @@map("notification_preferences")
+}
+
+enum AiConversationMessageRole {
+  USER
+  ASSISTANT
+}
+
+/// Ch90's AI Assistant conversation container. `emergencyDetected`/`escalated`
+/// exist so a support agent (or a future audit, Ch91) can see at a glance
+/// which conversations left the assistant's normal path — see ADR 0019.
+model AiConversation {
+  id                String                  @id @default(uuid())
+  userId            String
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emergencyDetected Boolean                 @default(false)
+  escalated         Boolean                 @default(false)
+  /// Ch90's mandatory cost cap — cumulative estimated USD cost across every
+  /// assistant reply in this conversation. See ai-cost.util.ts.
+  estimatedCostUsd  Decimal                 @default(0) @db.Decimal(8, 4)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  messages AiConversationMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiConversationMessage {
+  id             String                    @id @default(uuid())
+  conversationId String
+  conversation   AiConversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AiConversationMessageRole
+  content        String
+  createdAt      DateTime                  @default(now())
+
+  @@index([conversationId])
+  @@map("ai_conversation_messages")
 }
 
 /// Ch33 — refresh-token rotation, required. Opaque random tokens (not JWTs),

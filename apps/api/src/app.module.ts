@@ -14,6 +14,7 @@ import { NotificationModule } from "./modules/notification/notification.module";
 import { RatingModule } from "./modules/rating/rating.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { TrackingModule } from "./modules/tracking/tracking.module";
+import { AiModule } from "./modules/ai/ai.module";
 
 /**
  * One NestJS module per Ch24 bounded context (ADR 0001). No module imports
@@ -41,6 +42,7 @@ import { TrackingModule } from "./modules/tracking/tracking.module";
     RatingModule,
     AdminModule,
     TrackingModule,
+    AiModule,
   ],
 })
 export class AppModule {}
