@@ -13,20 +13,36 @@
 | PostgreSQL | 18.0 — installed and running locally as a Windows service (`postgresql-x64-18`) |
 | Python | not found — not required for this stack |
 
-Because Docker isn't available in this environment, `infrastructure/docker-compose.yml` is provided for anyone who has Docker, but the **currently-working local setup uses the native PostgreSQL 18 install directly**. Install the PostGIS extension for that instance before running migrations:
+Because Docker isn't available in this environment, `infrastructure/docker-compose.yml` is provided for anyone who has Docker, but the **currently-working local setup uses the native PostgreSQL 18 install directly**.
 
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
+**This bootstrap phase validated everything short of a live database connection**: `npm install`, `prisma generate`, the full `nest build`, and `npm test` (11 tests: the Ch19 state machine and the Ch6/Ch57 commission-split calculator) all ran clean in this environment. Actually creating the `motiq_dev` database and running a live migration needs your own Postgres credentials, which this session didn't have — do that part yourself with the steps below.
 
 ## Getting started
 
 ```bash
 npm install                       # installs all workspaces
-cp .env.example apps/api/.env     # fill in real local values
-npm run --workspace apps/api prisma:migrate   # applies schema + the PostGIS raw-SQL migration
-npm run --workspace apps/api start:dev
-npm run --workspace apps/web dev
+cp .env.example apps/api/.env     # fill in real local values, including your own DATABASE_URL
+
+# 1. Create the database if it doesn't exist yet, e.g.:
+#      psql -U postgres -c "CREATE DATABASE motiq_dev;"
+# 2. Enable PostGIS BEFORE the first migration — the schema's geography
+#    columns need the extension to already exist, or the migration fails:
+psql -U postgres -d motiq_dev -f apps/api/prisma/pre-migration-postgis-extension.sql
+
+# 3. Run the Prisma migration (creates every table, including the geography
+#    columns as plain columns — see docs/decisions/0002-*.md for why they're
+#    declared as Unsupported(...) in schema.prisma):
+npm run --workspace apps/api prisma:migrate
+
+# 4. Add the GiST spatial indexes Ch39/Ch41 require — Prisma's schema DSL has
+#    no "USING GIST" syntax, so this is a hand-written follow-up:
+psql -U postgres -d motiq_dev -f apps/api/prisma/post-migration-postgis-indexes.sql
+
+# 5. Seed the pilot ServiceArea + illustrative commission rate (Ch6 §6.3.4):
+npm run --workspace apps/api prisma:seed
+
+npm run --workspace apps/api start:dev   # http://localhost:3001/api/v1/health
+npm run --workspace apps/web dev          # http://localhost:3000
 ```
 
 ## Repository structure
@@ -54,8 +70,8 @@ See `docs/decisions/0010-monorepo-repository-structure.md`.
 ## Database migrations
 
 - Always through Prisma migrations (`prisma migrate dev` locally, `prisma migrate deploy` in CI/production) — never a manual schema edit against a running database.
-- The PostGIS geography columns and their GiST indexes are added via a hand-written raw-SQL migration step (see `apps/api/prisma/migrations/`, and ADR 0002) since Prisma's schema DSL doesn't natively model PostGIS types.
+- The PostGIS extension and GiST indexes are the one exception, applied by hand via `apps/api/prisma/pre-migration-postgis-extension.sql` and `apps/api/prisma/post-migration-postgis-indexes.sql` (ADR 0002), since Prisma's schema DSL doesn't natively model `CREATE EXTENSION` or `USING GIST`. No `prisma migrate dev` has been run yet in this repository — `apps/api/prisma/migrations/` doesn't exist until the first person with real database credentials runs the steps in "Getting started" above.
 
 ## Environment variables
 
-See `.env.example` at the repo root and `apps/api/.env.example` for the full list. Never commit a real `.env` file — it's gitignored.
+See `.env.example` at the repo root for the full list — copy it to `apps/api/.env` (see "Getting started" above). Never commit a real `.env` file — it's gitignored.

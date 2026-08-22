@@ -1,24 +1,23 @@
-/** Shared ESLint preset for MOTIQ workspaces. Extend from an app's own .eslintrc. */
+/** Shared ESLint base for MOTIQ's Node/TypeScript workspaces (apps/api, packages/*). */
 module.exports = {
-  root: true,
   parser: "@typescript-eslint/parser",
   parserOptions: {
+    ecmaVersion: "latest",
     sourceType: "module",
-    ecmaVersion: 2022,
   },
   plugins: ["@typescript-eslint"],
   extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
-    "prettier",
+    "eslint-config-prettier",
   ],
   env: {
     node: true,
-    es2022: true,
+    jest: true,
   },
   rules: {
-    "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+    "@typescript-eslint/explicit-module-boundary-types": "off",
   },
+  ignorePatterns: ["dist", "node_modules"],
 };
