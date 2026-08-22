@@ -11,11 +11,9 @@ class GeoPointDto {
 }
 
 export class CreateServiceRequestDto {
-  // TODO(Ch33): once auth is implemented, derive this from the authenticated
-  // session's auth context instead of accepting it from the client directly.
-  @IsUUID()
-  customerProfileId!: string;
-
+  // customerProfileId is deliberately NOT a field here — Phase 1 (ADR 0011)
+  // made it come from the authenticated session (@CurrentUser() in the
+  // controller), never from client input. See docs/roadmap.md Phase 1.
   @IsUUID()
   serviceAreaId!: string;
 

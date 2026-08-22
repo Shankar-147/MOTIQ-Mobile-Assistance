@@ -32,7 +32,8 @@ See `docs/architecture.md` for the full system design and `docs/decisions/` for 
 5. **Every `Payment` stores `totalAmount`, `commissionAmount`, and `providerPayoutAmount` as separate columns** — never derive the split on read (Ch6, Ch57).
 6. **Provider verification is a 4+-state enum, never a boolean** (`UNVERIFIED | PROVISIONAL | FULLY_VERIFIED | SUSPENDED | DELISTED`, ADR 0005, Ch98).
 7. **AI is additive, never load-bearing for the critical path** (ADR 0007). Every AI call site on the critical path (classification, ranking, ETA) needs a deterministic fallback as its designed default, not an error-handler afterthought. The SOS path (once built) never goes through the AI interface at all.
-8. **`ServiceArea` scoping is real, not cosmetic** (ADR 0006). A request against one city's data must not be satisfiable from another city's session without an explicit cross-area permission — enforce this at the data-access layer, not just the controller.
+8. **`ServiceArea` scoping is real, not cosmetic** (ADR 0006). A request against one city's data must not be satisfiable from another city's session without an explicit cross-area permission — enforce this at the data-access layer, not just the controller. **Not yet implemented anywhere** (Phase 1 only built role-based RBAC) — see `docs/roadmap.md`'s Reconciliation Notes.
+9. **Actor identity comes from `@CurrentUser()`, never from client-supplied body/query fields** (ADR 0011). A DTO must never contain `customerProfileId`, `providerProfileId`, or similar — derive it from the authenticated session in the controller, the way `RequestController.create()` does. Protect the route with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(...)` first.
 
 ## Coding conventions
 

@@ -123,8 +123,39 @@ model User {
   adminProfile    AdminProfile?
   auditLogs       AuditLog[]     @relation("ActorAuditLogs")
   notifications   Notification[]
+  refreshTokens   RefreshToken[]
 
   @@map("users")
+}
+
+/// Ch33 — refresh-token rotation, required. Opaque random tokens (not JWTs),
+/// stored only as a hash, so a token is actually revocable — see ADR 0011.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// Ch50 — OTP for phone-first Customer/Provider login and registration.
+/// Not linked to User by FK: the phone may not have a User yet (registration).
+model OtpChallenge {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, consumedAt])
+  @@map("otp_challenges")
 }
 
 model CustomerProfile {

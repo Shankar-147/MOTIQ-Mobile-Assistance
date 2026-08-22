@@ -49,7 +49,20 @@ Cursor-based pagination for list endpoints (`?cursor=...&limit=...`), not offset
 
 ## Authentication / authorization handling
 
-Bearer JWT access token in `Authorization: Header`. Every protected route declares its required role(s) via a NestJS guard/decorator — never inferred implicitly. `ServiceArea` scoping (Section 8 of `docs/architecture.md`) is enforced at the data-access layer, not just the controller layer.
+**Implemented as of Phase 1** — see `docs/decisions/0011-*.md`.
+
+Bearer JWT access token in `Authorization: Bearer <token>`. Every protected route declares `@UseGuards(JwtAuthGuard, RolesGuard)` plus `@Roles(...)` explicitly — never inferred implicitly, and never applied globally in this bootstrap phase (see ADR 0011 for why). `ServiceArea` scoping (Section 8 of `docs/architecture.md`) is **not yet enforced** at the data-access layer — tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed.
+
+Auth endpoints (unauthenticated — these issue the tokens everything else needs):
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/v1/auth/otp/request` | `{ phone }` → generates and "sends" (logs, in this bootstrap phase — no SMS provider, Ch32) a 6-digit code. `204`. |
+| `POST /api/v1/auth/otp/verify` | `{ phone, code, role?, displayName?, businessName?, serviceAreaId? }` → login if the phone has a `User` already; registers a new `CUSTOMER`/`PROVIDER` (role-specific fields required) if not. Returns a `TokenPairResponse`. |
+| `POST /api/v1/auth/admin/login` | `{ identifier, password }` → Admin/Support only; identical `401` whether the account doesn't exist or the password is wrong. Returns a `TokenPairResponse`. |
+| `POST /api/v1/auth/refresh` | `{ refreshToken }` → validates, revokes the presented token, issues a brand-new pair (rotation, Ch33). |
+
+A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape in `@motiq/types`) is never wrapped in the standard success envelope described above — it's the one response shape that's already exactly what the client needs, and it never contains money or list data.
 
 ## Idempotency
 

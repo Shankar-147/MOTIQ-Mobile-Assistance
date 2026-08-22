@@ -21,7 +21,8 @@ Because Docker isn't available in this environment, `infrastructure/docker-compo
 
 ```bash
 npm install                       # installs all workspaces
-cp .env.example apps/api/.env     # fill in real local values, including your own DATABASE_URL
+cp .env.example apps/api/.env     # fill in real local values, including your own DATABASE_URL,
+                                   # JWT_ACCESS_SECRET, and ADMIN_SEED_PASSWORD
 
 # 1. Create the database if it doesn't exist yet, e.g.:
 #      psql -U postgres -c "CREATE DATABASE motiq_dev;"
@@ -38,7 +39,8 @@ npm run --workspace apps/api prisma:migrate
 #    no "USING GIST" syntax, so this is a hand-written follow-up:
 psql -U postgres -d motiq_dev -f apps/api/prisma/post-migration-postgis-indexes.sql
 
-# 5. Seed the pilot ServiceArea + illustrative commission rate (Ch6 §6.3.4):
+# 5. Seed the pilot ServiceArea + illustrative commission rate (Ch6 §6.3.4)
+#    and an Admin account (admin@motiq.dev, password = ADMIN_SEED_PASSWORD):
 npm run --workspace apps/api prisma:seed
 
 npm run --workspace apps/api start:dev   # http://localhost:3001/api/v1/health

@@ -33,3 +33,4 @@ This mirrors the process the Bible will formally define in **Chapter 36**; kept 
 | 0008 | [Web admin console vs. mobile customer/provider apps](0008-web-admin-console-vs-mobile-customer-provider-apps.md) | Provisional | Ch64, Ch137 |
 | 0009 | [Managed message queue for the event backbone](0009-managed-message-queue-for-event-backbone.md) | Provisional | Ch31 |
 | 0010 | [Monorepo repository structure](0010-monorepo-repository-structure.md) | Provisional | Ch24, Ch48 |
+| 0011 | [OTP + JWT + opaque refresh tokens, guard-based RBAC](0011-otp-jwt-refresh-token-rbac-implementation.md) | Confirmed (requirements); Provisional (implementation specifics) | Ch33, Ch50, Ch51 |
