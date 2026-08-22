@@ -18,7 +18,7 @@ An AI-powered roadside-assistance marketplace for India, connecting drivers to v
 
 - **Backend:** NestJS, TypeScript, Prisma, PostgreSQL + PostGIS + TimescaleDB, Socket.IO WebSocket gateway with a Redis scaling adapter (`apps/api`).
 - **Admin console:** Next.js, TypeScript, Tailwind CSS (`apps/web`) — this is the internal ops/support console (Ch137), **not** the customer-facing product.
-- **Mobile:** placeholder only (`apps/mobile`) — Customer/Provider apps belong to Volume VI, framework (Flutter vs. React Native) not yet decided (ADR 0008).
+- **Mobile:** React Native (Expo), TypeScript (`apps/mobile`) — Customer and Provider apps as separate navigation stacks in one codebase (Volume VI, ADR 0008/ADR 0018). Never run through Metro or a real device/simulator in this environment — see `docs/roadmap.md`'s Reconciliation Notes.
 - **Shared:** `packages/types` (TS enums/DTOs), `packages/config` (lint/tsconfig).
 
 See `docs/architecture.md` for the full system design and `docs/decisions/` for why each choice was made.
@@ -81,6 +81,7 @@ cp .env.example apps/api/.env
 npm run --workspace apps/api prisma:migrate
 npm run --workspace apps/api start:dev   # backend, http://localhost:3001
 npm run --workspace apps/web dev          # admin console, http://localhost:3000
+npm run --workspace apps/mobile start     # Customer/Provider apps (Expo dev server)
 npm run --workspace apps/api test
 npm run lint
 npm run format

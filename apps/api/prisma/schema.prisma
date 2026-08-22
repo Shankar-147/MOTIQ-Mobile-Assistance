@@ -106,6 +106,13 @@ enum NotificationStatus {
   QUEUED
   SENT
   FAILED
+  /// Ch59 preference/quiet-hours suppression. Never used for CRITICAL tier — see ADR 0017.
+  SUPPRESSED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
 }
 
 enum VerificationDocumentType {
@@ -139,8 +146,44 @@ model User {
   notifications   Notification[]
   refreshTokens   RefreshToken[]
   reviewedVerificationDocuments ProviderVerificationDocument[]
+  pushDeviceTokens        PushDeviceToken[]
+  notificationPreference  NotificationPreference?
 
   @@map("users")
+}
+
+/// Ch70 — a user may have more than one device (phone + tablet); tokens are
+/// upserted by value so a re-registered token never duplicates a row.
+model PushDeviceToken {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String         @unique
+  platform     DevicePlatform
+  createdAt    DateTime       @default(now())
+  lastSeenAt   DateTime       @default(now())
+
+  @@index([userId])
+  @@map("push_device_tokens")
+}
+
+/// Ch59 — per-user channel opt-outs and quiet hours. CRITICAL-tier
+/// notifications (Ch79's SOS/safety carve-out) always bypass both — see
+/// notification-preference.util.ts and ADR 0017.
+model NotificationPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  smsEnabled       Boolean  @default(true)
+  pushEnabled      Boolean  @default(true)
+  emailEnabled     Boolean  @default(true)
+  /// Local-hour-of-day (0-23) window, inclusive of start, exclusive of end,
+  /// wrapping past midnight if start > end. Null on either means no quiet hours set.
+  quietHoursStartHour Int?
+  quietHoursEndHour   Int?
+  updatedAt        DateTime @updatedAt
+
+  @@map("notification_preferences")
 }
 
 /// Ch33 — refresh-token rotation, required. Opaque random tokens (not JWTs),

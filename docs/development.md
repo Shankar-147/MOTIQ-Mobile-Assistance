@@ -52,6 +52,9 @@ npm run --workspace apps/api prisma:seed
 npm run --workspace apps/api start:dev   # http://localhost:3001/api/v1/health
                                           # ws://localhost:3001/tracking (Ch75)
 npm run --workspace apps/web dev          # http://localhost:3000
+npm run --workspace apps/mobile start     # Expo dev server (Ch64-74) — needs Expo/Xcode/Android
+                                          # Studio tooling this environment doesn't have; see
+                                          # docs/decisions/0018-*.md and apps/mobile/README.md
 ```
 
 ## Repository structure

@@ -110,3 +110,9 @@ export enum VerificationDocumentStatus {
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
 }
+
+/** Ch70 — mobile push device registration. */
+export enum DevicePlatform {
+  IOS = "IOS",
+  ANDROID = "ANDROID",
+}

@@ -90,6 +90,13 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | `PATCH /api/v1/admin/providers/:id/verification-status` | Admin | `{ status }` — the guarded tier transition; higher-stakes than document review, so Admin-only. |
 | `POST /api/v1/admin/providers/verification-sweep` | Admin | Manual stand-in for Ch62's future re-verification-cadence scheduler; de-lists lapsed providers. |
 
+**Notification endpoints, implemented as of Phase 5** (ADR 0017):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `POST /api/v1/notifications/device-tokens` | Any authenticated role | Registers/upserts a push device token (Ch70). |
+| `GET\|PATCH /api/v1/notifications/preferences` | Any authenticated role | Read/update own channel opt-outs and quiet hours (Ch59). |
+
 ## Idempotency
 
 `Idempotency-Key` header **required** on POST/PATCH endpoints with money-movement or job-creation side effects (Ch29, Ch43) — this is the binding rule; **not literally implemented as a client-supplied header yet**. Payment settlement instead uses a server-derived idempotency key (`settle:${serviceRequestId}`, one settlement per request, ever) — see ADR 0014. A real client-supplied `Idempotency-Key` header is tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.
@@ -100,7 +107,7 @@ No controller or service calls a third-party SDK (Maps, Razorpay, SMS) directly 
 
 ## WebSocket protocol (Ch54, Ch75–77 — implemented as of Phase 3, ADR 0015)
 
-`ws://.../tracking` (Socket.IO namespace). Authenticate once at connection via `auth: { token: "<same JWT access token as REST>" }` in the Socket.IO handshake options (or an `Authorization: Bearer` header) — an invalid/missing token disconnects immediately. Not wrapped in the RFC 7807 envelope; each event below is its own small payload.
+`ws://.../tracking` (Socket.IO namespace). Authenticate once at connection via `auth: { token: "<same JWT access token as REST>" }` in the Socket.IO handshake options (or an `Authorization: Bearer` header) — an invalid/missing token disconnects immediately. Not wrapped in the RFC 7807 envelope; each event below is its own small payload. `apps/mobile`'s `src/realtime/trackingSocket.ts` (Phase 5) is the reference client implementation of this exact protocol.
 
 | Direction | Event | Payload | Notes |
 |---|---|---|---|

@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -20,6 +19,7 @@ import { JwtPayload } from "./jwt-payload.interface";
 import { generateOtpCode, hashOtpCode, verifyOtpCode } from "./otp.util";
 import { generateOpaqueToken, hashToken } from "./token.util";
 import { comparePassword } from "./password.util";
+import { NotificationService } from "../../notification/notification.service";
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_RESEND_COOLDOWN_SECONDS = 30;
@@ -32,12 +32,11 @@ const MAX_OTP_ATTEMPTS = 5;
  */
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async requestOtp(dto: RequestOtpDto): Promise<void> {
@@ -63,13 +62,10 @@ export class AuthService {
       },
     });
 
-    // No real SMS provider is wired yet (Ch32 is out of scope for this
-    // phase) — this is the same console/log adapter pattern as
-    // NotificationService, made loud and explicit so it's never mistaken
-    // for a production delivery path.
-    this.logger.log(
-      `[DEV ONLY — no SMS provider wired, Ch32] OTP for ${dto.phone}: ${code} (expires in ${OTP_TTL_SECONDS}s)`,
-    );
+    // Real Twilio delivery as of Phase 5 (ADR 0017) — degrades to a logged
+    // fallback when TWILIO_* isn't configured, same as every other
+    // unconfigured third-party adapter in this codebase.
+    await this.notifications.sendOtpSms(dto.phone, code, OTP_TTL_SECONDS);
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<TokenPairResponse> {

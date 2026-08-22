@@ -6,6 +6,7 @@ import { IdentityService } from "./identity.service";
 import { AuthService } from "./auth/auth.service";
 import { AuthController } from "./auth/auth.controller";
 import { JwtStrategy } from "./auth/strategies/jwt.strategy";
+import { NotificationModule } from "../notification/notification.module";
 
 /**
  * Owns User, CustomerProfile, ProviderProfile, AdminProfile, and auth
@@ -23,6 +24,7 @@ import { JwtStrategy } from "./auth/strategies/jwt.strategy";
 @Module({
   imports: [
     PassportModule,
+    NotificationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
