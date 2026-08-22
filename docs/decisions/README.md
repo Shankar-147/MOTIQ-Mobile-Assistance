@@ -37,3 +37,4 @@ This mirrors the process the Bible will formally define in **Chapter 36**; kept 
 | 0012 | [FareConfig and the Pricing Engine's distance input](0012-fare-config-and-pricing-engine.md) | Confirmed (fare formula); Provisional (match-time distance as input) | Ch8, Ch56 |
 | 0013 | [Matching dispatch, reassignment, and the event backbone (realized)](0013-matching-dispatch-and-event-backbone.md) | Confirmed (dispatch/reassignment); Provisional (single-offer-only, no scheduler) | Ch31, Ch52, Ch53 |
 | 0014 | [Payment settlement flow and the Razorpay adapter](0014-payment-settlement-and-razorpay-adapter.md) | Confirmed (auto-settlement, mandatory webhook verification); Provisional (Razorpay specifically) | Ch32, Ch57 |
+| 0015 | [Real-time tracking: WebSocket gateway, presence, location_pings](0015-realtime-tracking-websocket-gateway.md) | Confirmed (gateway + Redis scaling, hypertable); Provisional (timing defaults, no downsampling) | Ch40, Ch54, Ch75–77 |

@@ -1,6 +1,6 @@
 # MOTIQ — Phased Implementation Roadmap
 
-Companion to `docs/architecture.md`. Phases 0, 1, and 2 are complete; this is the proposed sequencing for what comes next.
+Companion to `docs/architecture.md`. Phases 0–3 are complete; this is the proposed sequencing for what comes next.
 
 ## Phase 0 — Architecture & Bootstrap (complete)
 
@@ -16,9 +16,11 @@ Real Matching (candidate retrieval via `ProviderService.findNearestAvailableProv
 
 **Not fully done**: no recurring scheduler triggers timeout reassignment (the logic is real, the trigger is manual); broadcast-to-multiple dispatch isn't implemented (single-offer only); the fare's distance input is match-time straight-line distance, not a live route; the Razorpay adapter has never been exercised against a real sandbox (no credentials in this session). See the Reconciliation Notes below.
 
-## Phase 3 — Real-Time Tracking (Ch54, Ch75–77)
+## Phase 3 — Real-Time Tracking (Ch40, Ch54, Ch75–77) (complete)
 
-WebSocket gateway, presence/heartbeat, live location streaming, the `location_pings` TimescaleDB store (Ch40) deferred from Phase 0.
+A JWT-authenticated WebSocket gateway (`/tracking`, ADR 0015) with room-per-request fan-out, throttled and persisted location updates (`location_pings`, a TimescaleDB hypertable per Ch40), presence/heartbeat with reconnection-storm-mitigating grace periods (Ch76), and Redis-adapter horizontal scaling that degrades to single-instance if Redis isn't available (Ch75). Every accepted location update from a provider on an active job recomputes and broadcasts an ETA range — the first real implementation of ADR 0007's ETA fallback obligation.
+
+**Not fully done**: no batching of location writes (each throttled update is its own insert); no downsampling for `location_pings` (raw-retention only); the throttle state is per-instance, not shared across a multi-instance deployment; neither TimescaleDB nor Redis has been verified against a real instance in this environment; `apps/mobile` doesn't exist yet, so the WebSocket protocol has never been exercised by a real client, only by DI-graph and unit-level checks. See the Reconciliation Notes below.
 
 ## Phase 4 — Provider Verification & Trust (Ch58, Ch98)
 
@@ -45,7 +47,9 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Decision | Where it lives | Revisit when |
 |---|---|---|
 | Prisma as the ORM (vs. TypeORM) | ADR 0002 | Ch38 (Logical & Physical Schema Design) is written |
-| `location_pings` / TimescaleDB not implemented | `docs/domain-model.md` | Phase 3 (Ch40, Ch54) |
+| `location_pings` / TimescaleDB implemented (Phase 3, ADR 0015) but never verified against a real TimescaleDB instance; no downsampling, only raw retention | ADR 0015 | First person with a TimescaleDB-enabled Postgres instance |
+| WebSocket gateway (Ch75) never exercised by a real client — `apps/mobile` doesn't exist; Redis adapter never verified against a real Redis instance | ADR 0015 | Phase 5 (`apps/mobile`), whenever Redis is available to test against |
+| Location-update throttle state is per-instance (in-memory `Map`), not shared across a multi-instance deployment | ADR 0015 | Whenever the WS gateway actually runs multi-instance |
 | `ServiceArea`-scoped matching-policy config is minimal (launch phase + commission + fare only, no broadcast/single-offer toggle) | ADR 0006, ADR 0013 | Ch53 or a dedicated future chapter formalizes the full config shape |
 | Matching offer timeout env-configured default (90s), not yet `ServiceArea`-scoped | ADR 0004, ADR 0013, `.env.example` | Ch53 + Ch121 load testing produce a real number |
 | Event backbone is in-memory only (now really implemented, ADR 0013), no real queue, no dead-letter queue | ADR 0009 | Ch101 (Cloud Architecture) picks a provider |
@@ -58,7 +62,7 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Flutter vs. React Native undecided; `apps/mobile` empty | ADR 0008 | Ch64 (Mobile Architecture Overview) is written |
 | No cloud provider chosen | `docs/architecture.md` §15 | Ch101 |
 | Docker Compose provided but unverified locally (Docker not found in this environment) | `docs/development.md`, `infrastructure/README.md` | Whenever Docker is available to test against |
-| No live `prisma migrate dev` has actually been run — schema, PostGIS SQL scripts, `nest build`, and all 11 unit tests were validated, but not a real database round-trip (this session didn't have local Postgres credentials) | `docs/development.md` §Getting started | First person with real local DB credentials runs the documented steps |
+| No live `prisma migrate dev` has actually been run — schema, PostGIS/TimescaleDB SQL scripts, `nest build`, 51 unit tests, and a full DI-graph boot check were all validated, but not a real database round-trip (this session didn't have local Postgres credentials) | `docs/development.md` §Getting started | First person with real local DB credentials runs the documented steps |
 | Prisma pinned to 5.22.x; `prisma generate` reported 7.9.1 is current | `apps/api/package.json` | Before real feature development starts — re-verify no breaking changes in the Prisma 6/7 migration guide first |
 | `AdminProfile`/Admin module minimal; no verification-review or dispatch-override UI yet | `docs/domain-model.md`, Ch61 module | Phase 4 |
 | No real AI provider behind `AiCapability`; all critical-path calls use their fallback | ADR 0007 | Phase 6 |

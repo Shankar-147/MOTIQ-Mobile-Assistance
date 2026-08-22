@@ -57,9 +57,11 @@ Belongs to a `ServiceArea`. `baseFare`, `perKmRate`, `maxSurgeMultiplier` (Decim
 ### AuditLog
 `actorUserId` (nullable — some actions are system-initiated), `action`, `entityType`, `entityId`, `metadata` (JSON), `createdAt`. Exists from day one per the master prompt's security principles and Ch61/Ch99's fraud/ops posture, even though this bootstrap phase only wires it to a small number of write paths (commission-rate changes, verification-status changes).
 
+### LocationPing
+Ch40's raw GPS trail store (implemented Phase 3, ADR 0015). `providerProfileId`, `latitude`/`longitude` (plain Floats, deliberately not PostGIS geography — see ADR 0015's "why not geography" note), `recordedAt`. Composite `(id, recordedAt)` primary key, not a plain single-column one, because TimescaleDB requires any unique/PK constraint on a hypertable to include the partitioning column. Written by `TrackingService` on every accepted (throttled) location update from a provider.
+
 ## Deliberately out of scope for this phase (see Reconciliation Notes)
 
-- **`location_pings` time-series table** (Ch40, TimescaleDB) — raw GPS trail storage belongs to Ch54's Real-Time Tracking Service.
 - **SOS/emergency entities** (Ch55) — safety-critical path, needs its own dedicated design, not bootstrapped speculatively.
 - **Chat messages** (Ch78) — in-app chat is a Volume VII concern, not core-transaction-critical.
 
@@ -70,11 +72,13 @@ User 1—1 CustomerProfile 1—* Vehicle
 User 1—1 ProviderProfile *—1 ServiceArea
 User 1—1 ProviderProfile 1—* ProviderFleetVehicle
 ServiceArea 1—* CommissionRate
+ServiceArea 1—* FareConfig
 ServiceArea 1—* ServiceRequest
 ServiceArea 1—* ProviderProfile
 CustomerProfile 1—* ServiceRequest
 ServiceRequest *—1 Vehicle (nullable, traceability only — see snapshot note)
 ServiceRequest 1—* Assignment *—1 ProviderProfile
+ProviderProfile 1—* LocationPing
 ServiceRequest 1—1 Payment *—1 CommissionRate
 ServiceRequest 1—1 Rating
 ```

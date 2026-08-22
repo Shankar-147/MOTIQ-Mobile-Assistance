@@ -196,9 +196,30 @@ model ProviderProfile {
   fleetVehicles   ProviderFleetVehicle[]
   assignments     Assignment[]
   ratingsReceived Rating[]               @relation("ProviderRatings")
+  locationPings   LocationPing[]
 
   @@index([serviceAreaId, verificationStatus, presenceStatus])
   @@map("provider_profiles")
+}
+
+/// Ch40's raw GPS trail store, deferred from Phase 0. Plain lat/lng Floats,
+/// deliberately NOT PostGIS geography — Ch39's binding rule is about the
+/// nearest-provider query path (ProviderProfile.currentLocation), not every
+/// location record; this table is a historical trail, never queried for
+/// proximity. Composite (id, recordedAt) id, not a plain single-column PK,
+/// because TimescaleDB requires any unique/primary-key constraint on a
+/// hypertable to include the partitioning column — see ADR 0015.
+model LocationPing {
+  id                String          @default(uuid())
+  providerProfileId String
+  providerProfile   ProviderProfile @relation(fields: [providerProfileId], references: [id])
+  latitude          Float
+  longitude         Float
+  recordedAt        DateTime        @default(now())
+
+  @@id([id, recordedAt])
+  @@index([providerProfileId, recordedAt])
+  @@map("location_pings")
 }
 
 model AdminProfile {

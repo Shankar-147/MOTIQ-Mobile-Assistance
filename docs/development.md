@@ -15,7 +15,7 @@
 
 Because Docker isn't available in this environment, `infrastructure/docker-compose.yml` is provided for anyone who has Docker, but the **currently-working local setup uses the native PostgreSQL 18 install directly**.
 
-**This bootstrap phase validated everything short of a live database connection**: `npm install`, `prisma generate`, the full `nest build`, and `npm test` (11 tests: the Ch19 state machine and the Ch6/Ch57 commission-split calculator) all ran clean in this environment. Actually creating the `motiq_dev` database and running a live migration needs your own Postgres credentials, which this session didn't have — do that part yourself with the steps below.
+**This bootstrap phase validated everything short of a live database connection**: `npm install`, `prisma generate`, the full `nest build`, `npm test` (51 tests across Phases 0–3), a full NestJS DI-graph boot check (catches circular-dependency/missing-provider errors `nest build` alone wouldn't), and a targeted check that the Redis WebSocket adapter degrades gracefully with no Redis available — all ran clean in this environment. Actually creating the `motiq_dev` database and running a live migration needs your own Postgres credentials (and, as of Phase 3, a TimescaleDB-enabled instance), which this session didn't have — do that part yourself with the steps below.
 
 ## Getting started
 
@@ -26,24 +26,31 @@ cp .env.example apps/api/.env     # fill in real local values, including your ow
 
 # 1. Create the database if it doesn't exist yet, e.g.:
 #      psql -U postgres -c "CREATE DATABASE motiq_dev;"
-# 2. Enable PostGIS BEFORE the first migration — the schema's geography
-#    columns need the extension to already exist, or the migration fails:
+# 2. Enable PostGIS AND TimescaleDB BEFORE the first migration — the schema's
+#    geography columns and location_pings hypertable need both extensions to
+#    already exist, or the migration fails. TimescaleDB is NOT bundled with a
+#    vanilla Postgres install the way PostGIS often is — install it first if
+#    you don't have it (see the .sql file's own comment):
 psql -U postgres -d motiq_dev -f apps/api/prisma/pre-migration-postgis-extension.sql
+psql -U postgres -d motiq_dev -f apps/api/prisma/pre-migration-timescaledb-extension.sql
 
 # 3. Run the Prisma migration (creates every table, including the geography
 #    columns as plain columns — see docs/decisions/0002-*.md for why they're
 #    declared as Unsupported(...) in schema.prisma):
 npm run --workspace apps/api prisma:migrate
 
-# 4. Add the GiST spatial indexes Ch39/Ch41 require — Prisma's schema DSL has
-#    no "USING GIST" syntax, so this is a hand-written follow-up:
+# 4. Add the GiST spatial indexes Ch39/Ch41 require, and convert
+#    location_pings into a TimescaleDB hypertable with a retention policy
+#    (Ch40) — Prisma's schema DSL has no syntax for either:
 psql -U postgres -d motiq_dev -f apps/api/prisma/post-migration-postgis-indexes.sql
+psql -U postgres -d motiq_dev -f apps/api/prisma/post-migration-timescaledb-hypertable.sql
 
 # 5. Seed the pilot ServiceArea + illustrative commission rate (Ch6 §6.3.4)
 #    and an Admin account (admin@motiq.dev, password = ADMIN_SEED_PASSWORD):
 npm run --workspace apps/api prisma:seed
 
 npm run --workspace apps/api start:dev   # http://localhost:3001/api/v1/health
+                                          # ws://localhost:3001/tracking (Ch75)
 npm run --workspace apps/web dev          # http://localhost:3000
 ```
 

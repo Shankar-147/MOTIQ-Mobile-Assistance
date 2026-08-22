@@ -16,7 +16,7 @@ An AI-powered roadside-assistance marketplace for India, connecting drivers to v
 
 ## Technology stack
 
-- **Backend:** NestJS, TypeScript, Prisma, PostgreSQL + PostGIS (`apps/api`).
+- **Backend:** NestJS, TypeScript, Prisma, PostgreSQL + PostGIS + TimescaleDB, Socket.IO WebSocket gateway with a Redis scaling adapter (`apps/api`).
 - **Admin console:** Next.js, TypeScript, Tailwind CSS (`apps/web`) — this is the internal ops/support console (Ch137), **not** the customer-facing product.
 - **Mobile:** placeholder only (`apps/mobile`) — Customer/Provider apps belong to Volume VI, framework (Flutter vs. React Native) not yet decided (ADR 0008).
 - **Shared:** `packages/types` (TS enums/DTOs), `packages/config` (lint/tsconfig).
