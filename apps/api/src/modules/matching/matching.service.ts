@@ -20,6 +20,7 @@ import {
 } from "../../common/events/domain-events";
 import { ProviderService } from "../provider/provider.service";
 import { RequestService } from "../request/request.service";
+import { AiService } from "../ai/ai.service";
 
 const DEFAULT_SEARCH_RADIUS_METERS = 10_000;
 const DEFAULT_CANDIDATE_FETCH_LIMIT = 5;
@@ -27,12 +28,13 @@ const DEFAULT_OFFER_TIMEOUT_SECONDS = 90;
 
 /**
  * Ch53's core dispatch engine. Candidate retrieval is PostGIS-backed (Ch39,
- * via ProviderService); ranking is a hard distance-sort — there's no ranking
- * model to fall back FROM yet (Ch84/ADR 0007's fallback IS the only
- * implementation right now, not a degraded mode). Single-offer dispatch only
- * — broadcast-to-multiple is a future per-ServiceArea config (ADR 0006).
- * Timeout-driven reassignment exists as real logic (sweepExpiredOffers) but
- * has no recurring scheduler wired yet (Ch62) — see docs/decisions/0013-*.md.
+ * via ProviderService); candidates are then re-ranked via AiService's
+ * weighted-score ranker (Ch84, Phase 6) — a hard distance-sort fallback
+ * (ADR 0007/Ch35) applies if ranking throws, so a ranking-layer failure
+ * never blocks dispatch. Single-offer dispatch only — broadcast-to-multiple
+ * is a future per-ServiceArea config (ADR 0006). Timeout-driven reassignment
+ * exists as real logic (sweepExpiredOffers) but has no recurring scheduler
+ * wired yet (Ch62) — see docs/decisions/0013-*.md.
  */
 @Injectable()
 export class MatchingService {
@@ -44,6 +46,7 @@ export class MatchingService {
     private readonly requestService: RequestService,
     private readonly config: ConfigService,
     private readonly events: EventEmitter2,
+    private readonly aiService: AiService,
   ) {}
 
   /** Request creation (Ch52) triggers matching without RequestModule ever
@@ -98,15 +101,15 @@ export class MatchingService {
       return { offered: false as const, reason: "no_provider_available" as const };
     }
 
-    const nearest = candidates[0];
-    const provider = await this.providerService.findById(nearest.id);
+    const topRanked = await this.rankCandidatesWithFallback(candidates);
+    const provider = await this.providerService.findById(topRanked.id);
 
     const assignment = await this.prisma.assignment.create({
       data: {
         serviceRequestId,
         providerProfileId: provider.id,
         providerVerificationStatusAtAssignment: provider.verificationStatus,
-        distanceMeters: nearest.distanceMeters,
+        distanceMeters: topRanked.distanceMeters,
       },
     });
 
@@ -119,6 +122,27 @@ export class MatchingService {
     } satisfies ProviderAssignedEvent);
 
     return { offered: true as const, assignmentId: assignment.id };
+  }
+
+  /**
+   * ADR 0007/Ch35's non-negotiable fallback: a ranking-layer failure must
+   * never block dispatch. Candidates already arrive distance-sorted from
+   * ProviderService's PostGIS query, so falling back to `candidates[0]`
+   * unranked is exactly the "hard distance-sort" fallback Ch84 requires —
+   * not a degraded improvisation.
+   */
+  private async rankCandidatesWithFallback(
+    candidates: { id: string; distanceMeters: number; trustScore: number }[],
+  ): Promise<{ id: string; distanceMeters: number }> {
+    try {
+      const ranked = await this.aiService.rankProviders(candidates);
+      return ranked[0];
+    } catch (error) {
+      this.logger.error(
+        `Provider ranking failed, falling back to distance-sort order: ${(error as Error).message}`,
+      );
+      return candidates[0];
+    }
   }
 
   async acceptOffer(assignmentId: string, providerProfileId: string) {

@@ -34,7 +34,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## API security
 
-- Third-party calls (Maps, Payments, SMS, Push) go through an internal adapter, never a direct SDK call from domain code (Ch32) — this is also what makes a circuit-breaker fallback (Ch35) possible. **As of Phase 5**, `TwilioSmsGatewayAdapter` and `FcmPushGatewayAdapter` follow the same pattern as `RazorpayGatewayAdapter` (ADR 0017).
+- Third-party calls (Maps, Payments, SMS, Push, AI) go through an internal adapter, never a direct SDK call from domain code (Ch32) — this is also what makes a circuit-breaker fallback (Ch35) possible. **As of Phase 5**, `TwilioSmsGatewayAdapter` and `FcmPushGatewayAdapter` follow the same pattern as `RazorpayGatewayAdapter` (ADR 0017). **As of Phase 6**, `AnthropicAssistantAdapter` does too (ADR 0019) — its cost-per-conversation cap (`AI_ASSISTANT_MAX_COST_USD_PER_CONVERSATION`) also functions as a basic abuse/cost-exhaustion control, separate from Ch95's general rate limiting.
 - Webhook signature verification is mandatory for any inbound webhook (payment gateway, Ch57) — never trust an unsigned or unverified webhook payload.
 
 ## Audit logging

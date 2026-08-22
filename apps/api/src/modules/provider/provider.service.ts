@@ -16,6 +16,8 @@ import { calculateTrustScore } from "./trust-score.util";
 interface NearbyProviderRow {
   id: string;
   distanceMeters: number;
+  /// Ch84's ranking input, added Phase 6 — see ai/provider-ranking.util.ts.
+  trustScore: number;
 }
 
 const DEFAULT_PROVISIONAL_REVERIFICATION_DAYS = 30;
@@ -87,7 +89,7 @@ export class ProviderService {
       SELECT id, ST_Distance(
         "currentLocation",
         ST_SetSRID(ST_MakePoint(${origin.longitude}, ${origin.latitude}), 4326)::geography
-      ) AS "distanceMeters"
+      ) AS "distanceMeters", "trustScore"::float8 AS "trustScore"
       FROM provider_profiles
       WHERE "serviceAreaId" = ${serviceAreaId}
         AND "presenceStatus" = 'ONLINE'
@@ -105,11 +107,12 @@ export class ProviderService {
 
   /**
    * Ch53's candidate retrieval, joined directly against a ServiceRequest's
-   * own pickupLocation — the ranking itself is a hard distance-sort (ADR
-   * 0007/Ch35's non-negotiable fallback; no ranking model exists yet).
-   * Excludes any provider already offered this request (any outcome —
-   * offered, accepted, rejected, or timed out), so a reassignment retry
-   * never re-asks someone who already answered.
+   * own pickupLocation. Returns candidates in distance order — MatchingService
+   * re-ranks this set via ProviderRankingPort (Ch84, Phase 6), falling back to
+   * this exact distance-sort order if ranking is unavailable (ADR 0007/Ch35's
+   * non-negotiable fallback). Excludes any provider already offered this
+   * request (any outcome — offered, accepted, rejected, or timed out), so a
+   * reassignment retry never re-asks someone who already answered.
    */
   async findNearestAvailableProvidersForRequest(
     serviceRequestId: string,
@@ -117,7 +120,8 @@ export class ProviderService {
     limit: number,
   ): Promise<NearbyProviderRow[]> {
     return this.prisma.$queryRaw<NearbyProviderRow[]>`
-      SELECT pp.id, ST_Distance(pp."currentLocation", sr."pickupLocation") AS "distanceMeters"
+      SELECT pp.id, ST_Distance(pp."currentLocation", sr."pickupLocation") AS "distanceMeters",
+        pp."trustScore"::float8 AS "trustScore"
       FROM provider_profiles pp
       JOIN service_requests sr ON sr.id = ${serviceRequestId}
       WHERE pp."serviceAreaId" = sr."serviceAreaId"

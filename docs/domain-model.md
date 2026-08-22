@@ -66,6 +66,9 @@ Ch59, Phase 5. 1:1 with `User`, created lazily on first read/write. `smsEnabled`
 ### AuditLog
 `actorUserId` (nullable — some actions are system-initiated), `action`, `entityType`, `entityId`, `metadata` (JSON), `createdAt`. Exists from day one per the master prompt's security principles and Ch61/Ch99's fraud/ops posture, even though this bootstrap phase only wires it to a small number of write paths (commission-rate changes, verification-status changes).
 
+### AiConversation / AiConversationMessage
+Ch90, Phase 6. `AiConversation`: `userId`, `emergencyDetected`/`escalated` (Booleans — a real future review process, Ch91, can query which conversations left the assistant's normal path), `estimatedCostUsd` (Decimal, cumulative — Ch90's binding cost-per-conversation cap, see `ai-cost.util.ts`). `AiConversationMessage`: `conversationId`, `role` (`USER | ASSISTANT`), `content`. See ADR 0019 for what this assistant can and can't do (notably: it cannot redirect to a real SOS path, because Ch55 doesn't exist).
+
 ### LocationPing
 Ch40's raw GPS trail store (implemented Phase 3, ADR 0015). `providerProfileId`, `latitude`/`longitude` (plain Floats, deliberately not PostGIS geography — see ADR 0015's "why not geography" note), `recordedAt`. Composite `(id, recordedAt)` primary key, not a plain single-column one, because TimescaleDB requires any unique/PK constraint on a hypertable to include the partitioning column. Written by `TrackingService` on every accepted (throttled) location update from a provider.
 

@@ -97,6 +97,14 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | `POST /api/v1/notifications/device-tokens` | Any authenticated role | Registers/upserts a push device token (Ch70). |
 | `GET\|PATCH /api/v1/notifications/preferences` | Any authenticated role | Read/update own channel opt-outs and quiet hours (Ch59). |
 
+**AI Capability endpoints, implemented as of Phase 6** (ADR 0019 — all deterministic, not ML-trained; see that ADR for why):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `POST /api/v1/ai/classify-issue` | Customer | `{ description }` → a suggested `issueType` + confidence (Ch83). Never gates request creation — `CreateServiceRequestDto.issueType` is still always the customer's own explicit choice. |
+| `POST /api/v1/ai/assistant/conversations` | Customer, Provider | Starts a new `AiConversation`. |
+| `POST /api/v1/ai/assistant/conversations/:id/messages` | Customer, Provider (own conversation) | `{ message }` → `{ reply, emergencyDetected, escalated }` (Ch90). Emergency-intent detection runs before any AI call; **cannot** trigger a real SOS flow (Ch55 doesn't exist) — see ADR 0019. No mobile UI calls this yet. |
+
 ## Idempotency
 
 `Idempotency-Key` header **required** on POST/PATCH endpoints with money-movement or job-creation side effects (Ch29, Ch43) — this is the binding rule; **not literally implemented as a client-supplied header yet**. Payment settlement instead uses a server-derived idempotency key (`settle:${serviceRequestId}`, one settlement per request, ever) — see ADR 0014. A real client-supplied `Idempotency-Key` header is tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.
