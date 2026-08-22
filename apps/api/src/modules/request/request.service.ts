@@ -1,13 +1,22 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RequestStatus as PrismaRequestStatus } from "@prisma/client";
 import { RequestStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import {
+  DomainEvents,
+  RequestCompletedEvent,
+  RequestCreatedEvent,
+} from "../../common/events/domain-events";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { assertValidTransition } from "./request-state-machine";
 
 @Injectable()
 export class RequestService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async create(customerProfileId: string, dto: CreateServiceRequestDto) {
     const vehicleSnapshot = await this.resolveVehicleSnapshot(dto.vehicleId);
@@ -35,6 +44,12 @@ export class RequestService {
       WHERE id = ${created.id}
     `;
 
+    // Matching (Ch53) reacts to this — see MatchingService's @OnEvent listener.
+    // Request never imports Matching (ADR 0001); this is the decoupling point.
+    this.events.emit(DomainEvents.RequestCreated, {
+      serviceRequestId: created.id,
+    } satisfies RequestCreatedEvent);
+
     return created;
   }
 
@@ -48,16 +63,25 @@ export class RequestService {
 
   /**
    * The ONLY method permitted to change ServiceRequest.status (Ch19, ADR 0004).
-   * Every other module reacts to a change via the (future) RequestStatusChanged
-   * domain event — never by writing this column directly.
+   * Every other module reacts to a change via a domain event (see
+   * common/events/domain-events.ts) — never by writing this column directly.
    */
   async transition(id: string, to: RequestStatus) {
     const request = await this.findById(id);
     assertValidTransition(request.status as unknown as RequestStatus, to);
-    return this.prisma.serviceRequest.update({
+    const updated = await this.prisma.serviceRequest.update({
       where: { id },
       data: { status: to as unknown as PrismaRequestStatus },
     });
+
+    if (to === RequestStatus.COMPLETED) {
+      // Payment (Ch57) reacts to this — see PaymentModule's @OnEvent listener.
+      this.events.emit(DomainEvents.RequestCompleted, {
+        serviceRequestId: id,
+      } satisfies RequestCompletedEvent);
+    }
+
+    return updated;
   }
 
   /**

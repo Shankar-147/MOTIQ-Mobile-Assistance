@@ -34,3 +34,6 @@ This mirrors the process the Bible will formally define in **Chapter 36**; kept 
 | 0009 | [Managed message queue for the event backbone](0009-managed-message-queue-for-event-backbone.md) | Provisional | Ch31 |
 | 0010 | [Monorepo repository structure](0010-monorepo-repository-structure.md) | Provisional | Ch24, Ch48 |
 | 0011 | [OTP + JWT + opaque refresh tokens, guard-based RBAC](0011-otp-jwt-refresh-token-rbac-implementation.md) | Confirmed (requirements); Provisional (implementation specifics) | Ch33, Ch50, Ch51 |
+| 0012 | [FareConfig and the Pricing Engine's distance input](0012-fare-config-and-pricing-engine.md) | Confirmed (fare formula); Provisional (match-time distance as input) | Ch8, Ch56 |
+| 0013 | [Matching dispatch, reassignment, and the event backbone (realized)](0013-matching-dispatch-and-event-backbone.md) | Confirmed (dispatch/reassignment); Provisional (single-offer-only, no scheduler) | Ch31, Ch52, Ch53 |
+| 0014 | [Payment settlement flow and the Razorpay adapter](0014-payment-settlement-and-razorpay-adapter.md) | Confirmed (auto-settlement, mandatory webhook verification); Provisional (Razorpay specifically) | Ch32, Ch57 |

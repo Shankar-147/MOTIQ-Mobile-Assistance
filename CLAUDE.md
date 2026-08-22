@@ -23,6 +23,10 @@ An AI-powered roadside-assistance marketplace for India, connecting drivers to v
 
 See `docs/architecture.md` for the full system design and `docs/decisions/` for why each choice was made.
 
+## Cross-module communication
+
+Modules react to each other through domain events (`common/events/domain-events.ts`, `@nestjs/event-emitter`), never by importing each other back-and-forth. `RequestModule` emits `RequestCreated`/`RequestCompleted`; `MatchingModule` and `PaymentModule` listen via `@OnEvent(...)`. If you need Module A to react to something in Module B without B depending on A, add an event — don't create the reverse import (ADR 0013).
+
 ## Architecture rules (non-negotiable, not just style preferences)
 
 1. **Modular monolith, not microservices** (ADR 0001). One NestJS module per bounded context. No module reaches into another module's Prisma models/repositories directly — only through the owning module's exported service.

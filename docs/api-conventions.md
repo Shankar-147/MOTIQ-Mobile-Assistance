@@ -64,9 +64,24 @@ Auth endpoints (unauthenticated — these issue the tokens everything else needs
 
 A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape in `@motiq/types`) is never wrapped in the standard success envelope described above — it's the one response shape that's already exactly what the client needs, and it never contains money or list data.
 
+**Core transaction flow endpoints, implemented as of Phase 2** (see ADRs 0012–0014 for the reasoning):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `POST /api/v1/requests` | Customer | Creates a request; `RequestCreated` auto-triggers matching. |
+| `GET /api/v1/requests/:id` | Customer (own), Provider, Admin, Support | Read one request. |
+| `PATCH /api/v1/requests/:id/cancel` | Customer (own) | `→ CANCELLED_BY_CUSTOMER`. |
+| `PATCH /api/v1/providers/me/presence` | Provider | Go online/offline, update live location. |
+| `POST /api/v1/assignments/:id/accept` \| `/reject` | Provider (own offer) | Reject immediately triggers reassignment. |
+| `PATCH /api/v1/assignments/:id/job-status` | Provider (own, accepted) | `PROVIDER_EN_ROUTE → ... → COMPLETED`; `COMPLETED` auto-triggers Payment settlement. |
+| `POST /api/v1/matching/sweep-expired` | Admin | Manual stand-in for Ch62's future timeout scheduler. |
+| `POST\|GET .../fare-configs`, `.../commission-rates` | Admin (write), open (read) | `ServiceArea`-scoped money configuration (ADR 0003, ADR 0012). |
+| `POST /api/v1/requests/:requestId/ratings` | Customer (own, completed) | One rating per request; provider derived from the accepted `Assignment`, never client-supplied. |
+| `POST /api/v1/payments/webhooks/razorpay` | Unauthenticated — signature IS the auth | See ADR 0014. |
+
 ## Idempotency
 
-`Idempotency-Key` header **required** on POST/PATCH endpoints with money-movement or job-creation side effects (Ch29, Ch43) — payment-intent creation and service-request creation specifically. The server stores the key against the resulting resource and returns the original result on a retried request with the same key, rather than creating a duplicate.
+`Idempotency-Key` header **required** on POST/PATCH endpoints with money-movement or job-creation side effects (Ch29, Ch43) — this is the binding rule; **not literally implemented as a client-supplied header yet**. Payment settlement instead uses a server-derived idempotency key (`settle:${serviceRequestId}`, one settlement per request, ever) — see ADR 0014. A real client-supplied `Idempotency-Key` header is tracked in `docs/roadmap.md`'s Reconciliation Notes, not silently assumed done.
 
 ## Third-party integration boundary
 

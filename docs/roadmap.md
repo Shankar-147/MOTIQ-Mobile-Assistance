@@ -1,6 +1,6 @@
 # MOTIQ — Phased Implementation Roadmap
 
-Companion to `docs/architecture.md`. Phases 0 and 1 are complete; this is the proposed sequencing for what comes next.
+Companion to `docs/architecture.md`. Phases 0, 1, and 2 are complete; this is the proposed sequencing for what comes next.
 
 ## Phase 0 — Architecture & Bootstrap (complete)
 
@@ -10,9 +10,11 @@ Environment assessment, technology stack, architecture analysis, domain model, r
 
 OTP-based phone login/registration for Customer/Provider (`POST /auth/otp/request`, `POST /auth/otp/verify`), password login for Admin/Support (`POST /auth/admin/login`), JWT access tokens with opaque DB-backed refresh-token rotation (`POST /auth/refresh`), and guard-based RBAC (`JwtAuthGuard` + `RolesGuard` + `@Roles(...)`) — see `docs/decisions/0011-*.md` for the full design. `RequestController.create()` now derives `customerProfileId` from the authenticated session instead of trusting client input, closing the exact gap this phase existed to close. **Not fully done**: RBAC is role-based only so far — `ServiceArea` cross-city scoping isn't enforced anywhere yet, and only `RequestController`'s read endpoint has a real ownership check. See the Reconciliation Notes below.
 
-## Phase 2 — Core Transaction Flow (Ch52, Ch53, Ch56, Ch57)
+## Phase 2 — Core Transaction Flow (Ch52, Ch53, Ch56, Ch57) (complete)
 
-Real Matching (candidate retrieval via `ProviderService.findNearestAvailableProviders`, distance-sort ranking, timeout-driven reassignment through `RequestService.transition()`), the deterministic Pricing Engine (Ch56), and Payment settlement against a real gateway (Razorpay, per the Bible's stack) with webhook verification. This is the MVP scope Ch9's condensed entry names: request creation, matching, tracking, payment, rating.
+Real Matching (candidate retrieval via `ProviderService.findNearestAvailableProvidersForRequest`, distance-sort dispatch, reassignment on rejection, timeout expiry via an Admin-triggered sweep), the deterministic Pricing Engine (Ch56, ADR 0012), and Payment settlement (ADR 0014) with a real Razorpay adapter behind `PaymentGatewayPort` and mandatory webhook signature verification. Request/Matching/Payment are wired together for real via domain events (`@nestjs/event-emitter`, ADR 0013) rather than direct module imports. Rating submission (Ch58) is also wired end-to-end, guarded and provider-derived from the accepted `Assignment`. This delivers Ch9's MVP scope minus tracking (Phase 3): request creation, matching, payment, rating.
+
+**Not fully done**: no recurring scheduler triggers timeout reassignment (the logic is real, the trigger is manual); broadcast-to-multiple dispatch isn't implemented (single-offer only); the fare's distance input is match-time straight-line distance, not a live route; the Razorpay adapter has never been exercised against a real sandbox (no credentials in this session). See the Reconciliation Notes below.
 
 ## Phase 3 — Real-Time Tracking (Ch54, Ch75–77)
 
@@ -44,9 +46,15 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 |---|---|---|
 | Prisma as the ORM (vs. TypeORM) | ADR 0002 | Ch38 (Logical & Physical Schema Design) is written |
 | `location_pings` / TimescaleDB not implemented | `docs/domain-model.md` | Phase 3 (Ch40, Ch54) |
-| `ServiceArea`-scoped matching-policy config is minimal (launch phase + commission only) | ADR 0006 | Ch53 or a dedicated future chapter formalizes the full config shape |
-| Matching offer timeout hardcoded default (90s) | ADR 0004, `.env.example` | Ch53 + Ch121 load testing produce a real number |
-| Event backbone is in-memory only, no real queue, no dead-letter queue | ADR 0009 | Ch101 (Cloud Architecture) picks a provider |
+| `ServiceArea`-scoped matching-policy config is minimal (launch phase + commission + fare only, no broadcast/single-offer toggle) | ADR 0006, ADR 0013 | Ch53 or a dedicated future chapter formalizes the full config shape |
+| Matching offer timeout env-configured default (90s), not yet `ServiceArea`-scoped | ADR 0004, ADR 0013, `.env.example` | Ch53 + Ch121 load testing produce a real number |
+| Event backbone is in-memory only (now really implemented, ADR 0013), no real queue, no dead-letter queue | ADR 0009 | Ch101 (Cloud Architecture) picks a provider |
+| No recurring scheduler for `sweepExpiredOffers()` — real logic, manual Admin-triggered endpoint only | ADR 0013 | Ch62 (Background Jobs) |
+| Broadcast-to-multiple dispatch not implemented — single-offer only | ADR 0013 | Whenever a thin-supply city needs it (Ch7 §7.6.2) |
+| Fare's distance input is match-time straight-line `Assignment.distanceMeters`, not a live route | ADR 0012 | Ch32 (Maps API) / Ch54 (Real-Time Tracking) |
+| Surge is hardcoded to 1.00 everywhere — no demand-forecasting model to compute a real value from | ADR 0012, `docs/architecture.md` §11a | Ch86 (Demand Forecasting Model) |
+| Razorpay adapter never exercised against a real sandbox — no credentials in this session | ADR 0014 | First person with real Razorpay test credentials |
+| `Idempotency-Key` client header not actually implemented (Payment settlement uses a server-derived key instead) | `docs/api-conventions.md` | Whenever a second money-movement endpoint needs client-side idempotency too |
 | Flutter vs. React Native undecided; `apps/mobile` empty | ADR 0008 | Ch64 (Mobile Architecture Overview) is written |
 | No cloud provider chosen | `docs/architecture.md` §15 | Ch101 |
 | Docker Compose provided but unverified locally (Docker not found in this environment) | `docs/development.md`, `infrastructure/README.md` | Whenever Docker is available to test against |
@@ -58,7 +66,7 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Illustrative 15% commission rate used as the seed default | `prisma/seed.ts`, Ch6 §6.3.4 | Ch4's provider research produces a validated number |
 | `AuditLog` wired to only two write paths (commission-rate changes, verification-status changes are the intent; only the service method exists, not yet called from every relevant path) | `apps/api/src/modules/admin` | Phase 4 |
 | `ServiceArea` cross-city RBAC scoping not enforced anywhere (role-based RBAC only) | ADR 0011, `docs/architecture.md` §6 | Phase 2, whenever the first cross-city query risk actually appears |
-| Ownership/data-access-layer checks only exist for `RequestController`'s read endpoint — `Assignment`, `Payment`, `Rating`, `Vehicle` still need the same treatment | ADR 0011 Consequences | Phase 2+, as each module gets built out |
+| Ownership checks now also exist for cancel/accept/reject/job-status/rating (Phase 2), but `Payment` and `Vehicle` still have none | ADR 0011 Consequences | Phase 2+, as each remaining module gets built out |
 | No cleanup job for expired `OtpChallenge`/`RefreshToken` rows | ADR 0011 Consequences | Ch62 (Background Jobs) |
 | `bcryptjs` chosen over `argon2` specifically because this environment's native build toolchain was never confirmed | ADR 0011 | Ch93 (Identity & Access Security), once toolchain is confirmed |
 | Guards applied per-route, not globally via `APP_GUARD` | ADR 0011 | Revisit once the number of protected routes grows past what's easy to eyeball |

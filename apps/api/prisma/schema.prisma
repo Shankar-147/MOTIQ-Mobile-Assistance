@@ -256,6 +256,7 @@ model ServiceArea {
   providers        ProviderProfile[]
   serviceRequests  ServiceRequest[]
   commissionRates  CommissionRate[]
+  fareConfigs      FareConfig[]
   customerDefaults CustomerProfile[]
 
   @@map("service_areas")
@@ -274,6 +275,24 @@ model CommissionRate {
 
   @@index([serviceAreaId, effectiveFrom])
   @@map("commission_rates")
+}
+
+/// Ch8/Ch56 — fare = baseFare + distanceComponent, times an (capped) surge
+/// multiplier, minus promotions. Versioned per ServiceArea, same pattern as
+/// CommissionRate — never a code constant (Ch34). See ADR 0012.
+model FareConfig {
+  id                 String      @id @default(uuid())
+  serviceAreaId      String
+  serviceArea        ServiceArea @relation(fields: [serviceAreaId], references: [id])
+  baseFare           Decimal     @db.Decimal(10, 2)
+  perKmRate          Decimal     @db.Decimal(10, 2)
+  /// Ch8 — surge must be capped and explainable, never an opaque multiplier.
+  maxSurgeMultiplier Decimal     @default(1.0) @db.Decimal(4, 2)
+  effectiveFrom      DateTime
+  createdAt          DateTime    @default(now())
+
+  @@index([serviceAreaId, effectiveFrom])
+  @@map("fare_configs")
 }
 
 model ServiceRequest {
@@ -323,6 +342,12 @@ model Assignment {
   status                                  AssignmentStatus           @default(OFFERED)
   /// Point-in-time snapshot — see ADR 0005 and Ch1 §1.6.2's Safety success layer.
   providerVerificationStatusAtAssignment ProviderVerificationStatus
+  /// Straight-line (PostGIS ST_Distance) provider-to-pickup distance at offer
+  /// time, in meters — not a real driving route (Ch32's Maps/routing API
+  /// integration is future work). Reused as the Pricing Engine's distance
+  /// input when the job completes (ADR 0012) so fare doesn't need a second,
+  /// separate distance source.
+  distanceMeters                          Float?
   offeredAt                               DateTime                   @default(now())
   respondedAt                             DateTime?
   /// Optimistic lock (Ch43) — prevents double-assignment race conditions.
