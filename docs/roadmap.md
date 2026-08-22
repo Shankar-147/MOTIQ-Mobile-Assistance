@@ -50,6 +50,8 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | Flutter vs. React Native undecided; `apps/mobile` empty | ADR 0008 | Ch64 (Mobile Architecture Overview) is written |
 | No cloud provider chosen | `docs/architecture.md` §15 | Ch101 |
 | Docker Compose provided but unverified locally (Docker not found in this environment) | `docs/development.md`, `infrastructure/README.md` | Whenever Docker is available to test against |
+| No live `prisma migrate dev` has actually been run — schema, PostGIS SQL scripts, `nest build`, and all 11 unit tests were validated, but not a real database round-trip (this session didn't have local Postgres credentials) | `docs/development.md` §Getting started | First person with real local DB credentials runs the documented steps |
+| Prisma pinned to 5.22.x; `prisma generate` reported 7.9.1 is current | `apps/api/package.json` | Before real feature development starts — re-verify no breaking changes in the Prisma 6/7 migration guide first |
 | `AdminProfile`/Admin module minimal; no verification-review or dispatch-override UI yet | `docs/domain-model.md`, Ch61 module | Phase 4 |
 | No real AI provider behind `AiCapability`; all critical-path calls use their fallback | ADR 0007 | Phase 6 |
 | Field-level PII encryption, MFA, WAF/DDoS config not implemented | `docs/security.md` | Phase 7 (Ch93–95) |
