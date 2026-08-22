@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "MOTIQ",
+    "slug": "motiq-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "MOTIQ uses your location to find nearby roadside assistance and to share a provider's live location with you during a job.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MOTIQ providers share live location with the customer while a job is in progress (Ch68)."
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
+    }
+  }
+}

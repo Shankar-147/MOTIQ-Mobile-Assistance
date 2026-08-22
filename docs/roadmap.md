@@ -28,9 +28,13 @@ A guarded verification-status state machine (ADR 0016, same discipline as `Servi
 
 **Not fully done**: no document-sufficiency automation (by design — Ch98 doesn't specify one); `fileUrl` is an unvalidated client-supplied reference, no real file storage/scanning; commission-rate changes are still not audit-logged (only verification-related writes are); re-verification sweep has no recurring scheduler, same manual-trigger posture as every other "Ch62 not built yet" item. See the Reconciliation Notes below.
 
-## Phase 5 — Notifications, Mobile Apps (Ch32, Ch59, Ch64–74)
+## Phase 5 — Notifications, Mobile Apps (Ch32, Ch59, Ch64–74) (complete)
 
-Real SMS/push provider integration; the Flutter-vs-React-Native decision (ADR 0008) resolved and `apps/mobile` actually built.
+Real multi-channel notification adapters (ADR 0017): Twilio for SMS (including OTP delivery, replacing Phase 1's console-log-only path), FCM's legacy HTTP API for push, both behind Ch32 adapter ports and degrading to a logged fallback when unconfigured — the same pattern established for Razorpay in Phase 2. Per-user notification preferences and quiet hours are real and enforced, with Ch79's CRITICAL tier (SOS, OTP) always bypassing suppression. `NotificationEventListener` fans out `RequestCreated`/`ProviderAssigned`/`PaymentSettled`/`RatingSubmitted` into push notifications the same way Matching/Payment already reacted to each other (ADR 0013).
+
+The Flutter-vs-React-Native question (ADR 0008) is resolved: **React Native via Expo** (ADR 0018), reasoned from `packages/types`' direct TypeScript sharing and this environment having no Flutter SDK installed. `apps/mobile` is now a real Expo/TypeScript app — Customer and Provider experiences as separate navigation stacks in one codebase (Ch65), covering Ch71's request-creation/live-tracking/payment-rating flow and Ch72's job-offer/accept/status flow at equal depth, Ch66's token-refresh-aware API layer, Ch67's offline request-queuing guarantee, Ch68's foreground-only location streaming, Ch69's WebSocket tracking client, Ch70's Android push registration, and Ch73's shared accessibility constants.
+
+**Not fully done**: `apps/mobile` has been type-checked and linted but never run through Metro, opened in Expo Go, or built for a device/simulator — no Expo/Xcode/Android Studio tooling available in this environment (see ADR 0018). iOS push (needs a separate APNs adapter) and true background location tracking (needs `expo-task-manager`) are both unbuilt. The SOS/SMS-fallback requirement (Ch67, Ch55) has nothing to fall back to yet, since no SOS endpoint exists on the backend. No "list Service Areas" or "my pending offer" endpoint exists for mobile clients, so onboarding/offer-recovery both lean on manual IDs or push-notification delivery with no in-app fallback. Twilio/FCM have never been exercised against real credentials. See the Reconciliation Notes below.
 
 ## Phase 6 — AI Capabilities (Ch80–91)
 
@@ -79,3 +83,12 @@ Every provisional decision made in this bootstrap phase, to be revisited once th
 | No cleanup job for expired `OtpChallenge`/`RefreshToken` rows | ADR 0011 Consequences | Ch62 (Background Jobs) |
 | `bcryptjs` chosen over `argon2` specifically because this environment's native build toolchain was never confirmed | ADR 0011 | Ch93 (Identity & Access Security), once toolchain is confirmed |
 | Guards applied per-route, not globally via `APP_GUARD` | ADR 0011 | Revisit once the number of protected routes grows past what's easy to eyeball |
+| Flutter vs. React Native resolved to React Native/Expo (Phase 5, ADR 0018) — but reasoned from this environment's toolchain (no Flutter SDK installed), not from a Ch64 requirement | ADR 0018 | Ch64 written at full depth, or once real mobile engineers are hired |
+| `apps/mobile` type-checked and linted only — never run through Metro, Expo Go, or a real device/simulator build; no Expo/Xcode/Android Studio available in this environment | ADR 0018 | First person with Expo tooling available |
+| FCM's legacy `fcm/send` HTTP API used instead of the current HTTP v1 API, to avoid an extra OAuth2-capable dependency for an unconfigured channel | ADR 0017 | Before a real production push launch — Google has deprecated the legacy API |
+| iOS push not implemented — the backend's PushGatewayPort only speaks FCM; iOS needs a separate APNs adapter | ADR 0017, ADR 0018 | Whenever iOS push is prioritized |
+| Twilio/FCM adapters never exercised against real credentials | ADR 0017 | First person with real Twilio/FCM credentials |
+| Notification preference/quiet-hours model (field shape, hour-granularity) is this bootstrap phase's invention, not Ch59-specified | ADR 0017 | Ch59 written at full depth |
+| Background location tracking (Ch68's actual named subject) not implemented — `apps/mobile`'s tracking is foreground-only | ADR 0018 | Whenever `expo-task-manager` background tasks are added |
+| SMS-based SOS fallback (Ch67, non-negotiable per that chapter) not implemented on mobile — there's no backend SOS endpoint (Ch55) yet for it to fall back to | ADR 0018 | Ch55 (SOS path) is built |
+| No "list Service Areas" endpoint for an authenticated mobile user, and no "my pending offer" endpoint for a provider — onboarding and offer-recovery both lean on manual IDs / push-notification delivery with no in-app fallback | `docs/api-conventions.md` | Whenever either endpoint is prioritized |

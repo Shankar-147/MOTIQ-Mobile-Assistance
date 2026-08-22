@@ -8,7 +8,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 - OTP-based phone login/registration for Customer/Provider (Ch50), `bcryptjs` password hashing for Admin/Support — never a homemade hash, never plaintext, ever, under any circumstance. Admin/Support accounts are never publicly self-registered.
 - Short-lived JWT access tokens with **opaque, DB-backed refresh-token rotation** (Ch33) — refresh tokens are random strings, stored only as a SHA-256 hash, revoked and replaced on every use. A JWT can't be genuinely revoked without a blocklist, which is why refresh tokens deliberately aren't JWTs here.
-- OTP codes are hashed at rest too (SHA-256 — a fast hash is the right call for a 6-digit code; the real defense is the 5-minute expiry, 30-second resend cooldown, and 5-attempt cap, not the hash algorithm).
+- OTP codes are hashed at rest too (SHA-256 — a fast hash is the right call for a 6-digit code; the real defense is the 5-minute expiry, 30-second resend cooldown, and 5-attempt cap, not the hash algorithm). **As of Phase 5** (ADR 0017), OTP delivery goes through a real Twilio adapter (degrading to a logged fallback if unconfigured) rather than always logging — see `NotificationService.sendOtpSms()`.
 - No secrets, tokens, or credentials committed to git. `.env` is gitignored; `.env.example` documents every required variable with a placeholder, never a real value.
 
 ## Authorization
@@ -34,7 +34,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 ## API security
 
-- Third-party calls (Maps, Payments, SMS) go through an internal adapter, never a direct SDK call from domain code (Ch32) — this is also what makes a circuit-breaker fallback (Ch35) possible.
+- Third-party calls (Maps, Payments, SMS, Push) go through an internal adapter, never a direct SDK call from domain code (Ch32) — this is also what makes a circuit-breaker fallback (Ch35) possible. **As of Phase 5**, `TwilioSmsGatewayAdapter` and `FcmPushGatewayAdapter` follow the same pattern as `RazorpayGatewayAdapter` (ADR 0017).
 - Webhook signature verification is mandatory for any inbound webhook (payment gateway, Ch57) — never trust an unsigned or unverified webhook payload.
 
 ## Audit logging

@@ -11,7 +11,7 @@ Two client applications are anticipated: a Next.js **Admin & Operations Console*
 ## 2. Frontend architecture
 
 - **`apps/web` (Admin & Operations Console).** Next.js, TypeScript, Tailwind CSS. Talks to `apps/api`'s `/api/v1` REST surface. Scoped to Ch137's responsibilities: provider-verification review queue, manual dispatch override, service-area/commission configuration. Not the customer-facing product.
-- **`apps/mobile` (Customer + Provider apps).** Placeholder only in this phase. Framework (Flutter vs. React Native) is explicitly left open pending Ch64 — see ADR 0008's consequences section for the tradeoff (React Native could share `packages/types` directly; Flutter could not).
+- **`apps/mobile` (Customer + Provider apps).** React Native (Expo), TypeScript — as of Phase 5, ADR 0018 (resolving ADR 0008's earlier open question). One codebase, two navigation stacks (Customer/Ch71, Provider/Ch72) selected by the authenticated user's role. Consumes `packages/types` directly. Type-checked and linted only in this session — never bundled or run on a device/simulator (no Expo/Xcode/Android Studio installed here); see `docs/roadmap.md`'s Reconciliation Notes.
 
 ## 3. Backend architecture
 
@@ -55,7 +55,7 @@ Canonical states (Ch19, confirmed, matches the master prompt's Section 7 exactly
 
 ## 10. Notification architecture
 
-Multi-channel abstraction (push/SMS/email) behind one `NotificationService` interface (Ch59), with delivery-guarantee tiers — SOS and safety-critical notifications are "critical" tier (never silently dropped), most others "best-effort" (Ch79). Implemented in this phase as an interface with a console/log adapter only; real provider integration (Ch32's SMS/push vendor) is out of scope for this bootstrap.
+Multi-channel abstraction (push/SMS/email) behind one `NotificationService` interface (Ch59), with delivery-guarantee tiers — SOS/safety and OTP are `CRITICAL` (never silently dropped, never preference/quiet-hours suppressed — Ch79), most others `BEST_EFFORT`. **As of Phase 5** (ADR 0017): real Twilio (SMS) and FCM-legacy (push) adapters behind `SmsGatewayPort`/`PushGatewayPort` (Ch32), degrading to a logged fallback when unconfigured; per-user channel preferences and quiet hours (`NotificationPreference`); push device registration (`PushDeviceToken`, Ch70); a `NotificationEventListener` reacting to `RequestCreated`/`ProviderAssigned`/`PaymentSettled`/`RatingSubmitted` the same way Matching/Payment react to each other (ADR 0013). Email has no adapter yet — logs only. Twilio/FCM have never been exercised against real credentials in this environment.
 
 ## 11. Payment architecture
 
@@ -98,6 +98,6 @@ The modular monolith (Section 1) is deliberately not yet scaled — Ch27's extra
 - **No provider available in a `ServiceArea`:** the request transitions to `EXPIRED` after the configured matching window; the actual UX for this moment is Ch135's job, out of scope here, but the state machine (Section 9) already has a defined terminal state for it.
 - **Payment gateway down:** the job can still be `COMPLETED` while payment stays `PENDING`/retrying, because payment status is modeled separately (Section 9) — the driver isn't left in matching limbo over a gateway blip.
 
-## 19. Future mobile-application compatibility
+## 19. Mobile-application compatibility (resolved, Phase 5)
 
-`packages/types` centralizes shared enums/DTOs (breakdown taxonomy, `RequestStatus`, `ProviderVerificationStatus`) so the API contract has one source of truth. If React Native is chosen for `apps/mobile` (Ch64), this package is directly consumable. If Flutter is chosen, a Dart-side equivalent or schema-driven codegen (from the Prisma schema or a generated OpenAPI spec) would be needed — flagged in ADR 0008, not resolved here.
+`packages/types` centralizes shared enums/DTOs (breakdown taxonomy, `RequestStatus`, `ProviderVerificationStatus`) so the API contract has one source of truth. `apps/mobile` is React Native/Expo (ADR 0018) and consumes this package directly, exactly as this section anticipated for that choice — if Flutter is chosen later after all, a Dart-side equivalent or schema-driven codegen (from the Prisma schema or a generated OpenAPI spec) would still be needed, per ADR 0008's original tradeoff note.

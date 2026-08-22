@@ -55,7 +55,13 @@ Belongs to a `ServiceArea`. `baseFare`, `perKmRate`, `maxSurgeMultiplier` (Decim
 1:1 with a completed `ServiceRequest`. `stars` (1–5), optional `comment`, FKs to both the rating customer and the rated provider. Feeds `ProviderProfile.ratingAverage` (Ch58) and, later, Ch84's ranking model.
 
 ### Notification
-`userId`, `channel` (`PUSH | SMS | EMAIL`), `category`, `deliveryTier` (`CRITICAL | BEST_EFFORT` — Ch79: SOS/safety notifications are never best-effort), `payload` (JSON), `status`, `sentAt`.
+`userId`, `channel` (`PUSH | SMS | EMAIL`), `category`, `deliveryTier` (`CRITICAL | BEST_EFFORT` — Ch79: SOS/safety notifications are never best-effort), `payload` (JSON), `status` (`QUEUED | SENT | FAILED | SUPPRESSED` — `SUPPRESSED` added Phase 5, ADR 0017, for a preference/quiet-hours-blocked `BEST_EFFORT` send), `sentAt`. Real Twilio/FCM delivery as of Phase 5 (ADR 0017); OTP delivery bypasses this entity entirely (see `NotificationService.sendOtpSms()`'s doc comment for why).
+
+### PushDeviceToken
+Ch70, Phase 5. `userId`, `token` (unique — upserted, not duplicated, on re-registration), `platform` (`IOS | ANDROID`), `lastSeenAt`. A user can have more than one (phone + tablet); `NotificationService` fans a push out to all of a user's tokens.
+
+### NotificationPreference
+Ch59, Phase 5. 1:1 with `User`, created lazily on first read/write. `smsEnabled`/`pushEnabled`/`emailEnabled` (Boolean), `quietHoursStartHour`/`quietHoursEndHour` (nullable local-hour-of-day integers, wrapping past midnight). Never suppresses `CRITICAL`-tier sends (Ch79) — see `notification-preference.util.ts`.
 
 ### AuditLog
 `actorUserId` (nullable — some actions are system-initiated), `action`, `entityType`, `entityId`, `metadata` (JSON), `createdAt`. Exists from day one per the master prompt's security principles and Ch61/Ch99's fraud/ops posture, even though this bootstrap phase only wires it to a small number of write paths (commission-rate changes, verification-status changes).
