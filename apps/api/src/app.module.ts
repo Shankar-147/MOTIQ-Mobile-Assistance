@@ -20,6 +20,7 @@ import { AdminModule } from "./modules/admin/admin.module";
 import { TrackingModule } from "./modules/tracking/tracking.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { ConsentModule } from "./modules/consent/consent.module";
+import { SosModule } from "./modules/sos/sos.module";
 
 /**
  * One NestJS module per Ch24 bounded context (ADR 0001). No module imports
@@ -70,6 +71,7 @@ import { ConsentModule } from "./modules/consent/consent.module";
     TrackingModule,
     AiModule,
     ConsentModule,
+    SosModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

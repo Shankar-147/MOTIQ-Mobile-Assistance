@@ -43,3 +43,5 @@ This mirrors the process the Bible will formally define in **Chapter 36**; kept 
 | 0018 | [Mobile framework: React Native (Expo), resolving ADR 0008](0018-react-native-expo-mobile-framework.md) | Provisional | Ch64–74 |
 | 0019 | [AI Capability architecture and scope](0019-ai-capability-architecture-and-scope.md) | Confirmed (interface/fallback discipline); Provisional (heuristic adapters, deferred chapters) | Ch80–91 |
 | 0020 | [Security hardening, observability, compliance scope](0020-security-hardening-observability-compliance-scope.md) | Confirmed (DPDP real-endpoints requirement, consent gating); Provisional (encryption master-key management, GPS-spoof thresholds, erasure-as-anonymization) | Ch92–100, Ch101–117, Ch126–132 |
+| 0021 | [SOS & Safety Service](0021-sos-safety-service.md) | Confirmed (bypass-priority, no-delay rate-limiting exemption); Provisional (alert lifecycle, emergency-number config, no real emergency-service integration) | Ch55, Ch1 §1.8, Ch90 |
+| 0022 | [Admin Console session architecture: Next.js as a BFF](0022-admin-console-bff-session-pattern.md) | Provisional | Ch137 |

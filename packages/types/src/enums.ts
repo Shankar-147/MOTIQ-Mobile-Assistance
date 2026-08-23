@@ -121,3 +121,11 @@ export enum DevicePlatform {
 export enum ConsentType {
   LOCATION_TRACKING = "LOCATION_TRACKING",
 }
+
+/** Ch55 — the platform's highest-priority path. */
+export enum SosAlertStatus {
+  TRIGGERED = "TRIGGERED",
+  ACKNOWLEDGED = "ACKNOWLEDGED",
+  RESOLVED = "RESOLVED",
+  FALSE_ALARM = "FALSE_ALARM",
+}

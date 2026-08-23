@@ -39,6 +39,27 @@ export class ProviderService {
     return provider;
   }
 
+  /** Ch137's Admin Console needs a way to browse providers (to find one to
+   * change a verification tier for, outside the pending-documents queue).
+   * Cursor-based, per docs/api-conventions.md's pagination convention. */
+  async listAll(params: { serviceAreaId?: string; cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const providers = await this.prisma.providerProfile.findMany({
+      where: params.serviceAreaId ? { serviceAreaId: params.serviceAreaId } : undefined,
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { phone: true } } },
+    });
+
+    const hasMore = providers.length > limit;
+    const page = hasMore ? providers.slice(0, limit) : providers;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
   /**
    * A provider going online/offline and updating their live location — the
    * write side of the Ch39 geospatial index MatchingService reads from.

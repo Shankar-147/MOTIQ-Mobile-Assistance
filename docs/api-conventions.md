@@ -97,6 +97,9 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | `PATCH /api/v1/admin/providers/verification-documents/:id/review` | Admin, Support | `{ decision: "APPROVED"\|"REJECTED", notes? }` — does not itself change the provider's tier. |
 | `PATCH /api/v1/admin/providers/:id/verification-status` | Admin | `{ status }` — the guarded tier transition; higher-stakes than document review, so Admin-only. |
 | `POST /api/v1/admin/providers/verification-sweep` | Admin | Manual stand-in for Ch62's future re-verification-cadence scheduler; de-lists lapsed providers. |
+| `GET /api/v1/admin/providers` | Admin, Support | Browse all providers, cursor-paginated — added Phase 8 so the Admin Console has a way to find one to act on. |
+| `GET /api/v1/admin/audit-log` | Admin, Support | Read the audit trail, cursor-paginated — added Phase 8; `AuditLog` previously had no read endpoint. |
+| `GET /api/v1/auth/admin/mfa` | Admin, Support | `{ mfaEnabled }` for the caller's own account — added Phase 8 for the Admin Console's MFA settings page. |
 
 **Notification endpoints, implemented as of Phase 5** (ADR 0017):
 
@@ -111,7 +114,16 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 |---|---|---|
 | `POST /api/v1/ai/classify-issue` | Customer | `{ description }` → a suggested `issueType` + confidence (Ch83). Never gates request creation — `CreateServiceRequestDto.issueType` is still always the customer's own explicit choice. |
 | `POST /api/v1/ai/assistant/conversations` | Customer, Provider | Starts a new `AiConversation`. |
-| `POST /api/v1/ai/assistant/conversations/:id/messages` | Customer, Provider (own conversation) | `{ message }` → `{ reply, emergencyDetected, escalated }` (Ch90). Emergency-intent detection runs before any AI call; **cannot** trigger a real SOS flow (Ch55 doesn't exist) — see ADR 0019. No mobile UI calls this yet. |
+| `POST /api/v1/ai/assistant/conversations/:id/messages` | Customer, Provider (own conversation) | `{ message }` → `{ reply, emergencyDetected, escalated }` (Ch90). Emergency-intent detection runs before any AI call and, as of Phase 9, files a real SOS alert (see below) — see ADR 0021. No mobile UI calls this yet. |
+
+**SOS endpoints, implemented as of Phase 9** (Ch55, ADR 0021 — `POST /sos/trigger` is exempt from rate limiting and consent-gating, both deliberately):
+
+| Endpoint | Role | Purpose |
+|---|---|---|
+| `POST /api/v1/sos/trigger` | Customer, Provider | `{ latitude?, longitude?, serviceRequestId? }` → `{ alertId, message }`. Fans out a `CRITICAL` push to every Admin/Support user immediately. |
+| `GET /api/v1/sos/alerts` | Admin, Support | List all alerts, active ones first. |
+| `PATCH /api/v1/sos/alerts/:id/acknowledge` | Admin, Support | `TRIGGERED → ACKNOWLEDGED`. |
+| `PATCH /api/v1/sos/alerts/:id/resolve` | Admin, Support | `{ outcome: "RESOLVED"\|"FALSE_ALARM", notes? }` — terminal. |
 
 **Consent and Data Rights endpoints, implemented as of Phase 7** (Ch126, Ch128, ADR 0020):
 

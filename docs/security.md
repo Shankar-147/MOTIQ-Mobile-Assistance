@@ -29,7 +29,7 @@ Anticipates Volume IX (Ch92–100). This is the bootstrap-phase baseline, not th
 
 - Global default limit via `@nestjs/throttler`, tracked **per-user** (the JWT subject, decoded but not verified — bucketing only, never a substitute for real auth) when a Bearer token is present, falling back to per-IP for unauthenticated requests — not just a generic gateway-level limit, per Ch95's binding requirement. See `throttle-tracker.util.ts`.
 - Tighter per-route limits on OTP request/verify, admin login, and AI Assistant messages — the endpoints where abuse is cheapest for an attacker and costliest for MOTIQ or its users.
-- The SOS path (once built, Ch55) will need to be explicitly exempted from any rate limit that could delay a genuine trigger — err toward false positives, never false negatives, on that path specifically. Not applicable yet since Ch55 doesn't exist.
+- **As of Phase 9** (Ch55, ADR 0021): `POST /sos/trigger` is explicitly exempted from the global rate limiter (`@SkipThrottle()`) — err toward false positives, never false negatives, on that path specifically. It also skips the `ConsentService` location-consent gate for the same reason (see §16b's compliance note) — the one deliberate exception to that rule in this codebase.
 
 ## Secrets management
 

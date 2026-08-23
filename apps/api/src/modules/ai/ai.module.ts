@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { SosModule } from "../sos/sos.module";
 import { AiService } from "./ai.service";
 import { AiController } from "./ai.controller";
 import { ISSUE_CLASSIFIER } from "./ports/issue-classifier.port";
@@ -19,6 +20,7 @@ import { KeywordAssistantResponder } from "./adapters/keyword-assistant.responde
  * other module boundary (ADR 0001).
  */
 @Module({
+  imports: [SosModule],
   controllers: [AiController],
   providers: [
     AiService,

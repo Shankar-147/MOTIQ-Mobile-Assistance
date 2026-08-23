@@ -11,6 +11,7 @@ import {
   onLocationUpdate,
   subscribeToRequest,
 } from "../../realtime/trackingSocket";
+import { SosButton } from "../sos/SosButton";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "TrackRequest">;
 
@@ -51,8 +52,13 @@ export function TrackRequestScreen({ route }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.statusLabel}>Status</Text>
-      <Text style={styles.statusValue}>{status ?? "Loading…"}</Text>
+      <View style={styles.topRow}>
+        <View>
+          <Text style={styles.statusLabel}>Status</Text>
+          <Text style={styles.statusValue}>{status ?? "Loading…"}</Text>
+        </View>
+        <SosButton serviceRequestId={serviceRequestId} />
+      </View>
 
       {location ? (
         <View style={styles.card}>
@@ -77,6 +83,7 @@ export function TrackRequestScreen({ route }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, gap: 12 },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   statusLabel: { fontSize: 14, color: "#555" },
   statusValue: { fontSize: 24, fontWeight: "700" },
   card: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, padding: 16, marginTop: 16 },
