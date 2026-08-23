@@ -39,6 +39,29 @@ export class AdminService {
     return this.providerService.listPendingVerificationDocuments();
   }
 
+  async listProviders(params: { serviceAreaId?: string; cursor?: string; limit?: number }) {
+    return this.providerService.listAll(params);
+  }
+
+  /** Ch137's Admin Console read path for the audit trail Phase 4/7 started
+   * writing to. Cursor-based, per docs/api-conventions.md. */
+  async listAuditLog(params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const entries = await this.prisma.auditLog.findMany({
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: "desc" },
+      include: { actorUser: { select: { phone: true, role: true } } },
+    });
+
+    const hasMore = entries.length > limit;
+    const page = hasMore ? entries.slice(0, limit) : entries;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
   async reviewVerificationDocument(
     documentId: string,
     adminUserId: string,

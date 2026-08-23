@@ -2,6 +2,7 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } fro
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { money } from "../../common/money";
+import { SosService } from "../sos/sos.service";
 import { ISSUE_CLASSIFIER, IssueClassifierPort } from "./ports/issue-classifier.port";
 import { PROVIDER_RANKING, ProviderRankingPort } from "./ports/provider-ranking.port";
 import { AI_ASSISTANT, AiAssistantPort } from "./ports/ai-assistant.port";
@@ -14,9 +15,6 @@ import { estimateReplyCostUsd, hasExceededConversationCostCap } from "./ai-cost.
 const DEFAULT_MAX_COST_USD_PER_CONVERSATION = "1.00";
 const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 40;
 
-const EMERGENCY_REPLY =
-  "This sounds like it may be an emergency. Please contact your local emergency services " +
-  "immediately (e.g. dial 112 in India) — this assistant is not a substitute for emergency response.";
 const COST_CAP_REPLY =
   "This conversation has reached its automatic length limit. Please start a new conversation, " +
   "or use 'Contact support' to reach a human agent.";
@@ -31,13 +29,14 @@ const COST_CAP_REPLY =
  * (see MatchingService.dispatch()'s try/catch), and the assistant degrades
  * to KeywordAssistantResponder's FAQ-only replies.
  *
- * Ch90's SOS-redirect requirement is only partially satisfiable here: Ch55
- * (the actual SOS path) does not exist yet in this codebase, so
- * detectEmergencyIntent() can stop the assistant from attempting to "handle"
- * an emergency conversationally (the part that IS achievable now), but it
- * can only tell the user to contact real emergency services directly — it
- * cannot literally redirect into a SOS flow that hasn't been built. This gap
- * is deliberate and documented, not silently worked around — see ADR 0019.
+ * Ch90's SOS-redirect requirement (Phase 8, ADR 0021): detectEmergencyIntent()
+ * stops the assistant from attempting to "handle" an emergency
+ * conversationally, files a real SosAlert via SosService (a one-way call —
+ * SosModule never imports AiModule, preserving ADR 0007's "SOS never goes
+ * through AiCapability" rule for the direct/primary trigger path), and tells
+ * the user to also contact real emergency services directly. Filing the
+ * alert is best-effort on top of the reply, never blocking it — see
+ * SosService.trigger()'s doc comment.
  */
 @Injectable()
 export class AiService {
@@ -50,6 +49,7 @@ export class AiService {
     @Inject(PROVIDER_RANKING) private readonly ranking: ProviderRankingPort,
     @Inject(AI_ASSISTANT) private readonly assistant: AiAssistantPort,
     private readonly keywordResponder: KeywordAssistantResponder,
+    private readonly sosService: SosService,
   ) {}
 
   async classifyIssue(description: string): Promise<ClassificationResult> {
@@ -87,7 +87,23 @@ export class AiService {
         where: { id: conversationId },
         data: { emergencyDetected: true },
       });
-      return this.persistAndReturn(conversationId, EMERGENCY_REPLY, { emergencyDetected: true });
+      // Best-effort — filing the alert must never block the reply itself.
+      // No location is available from a chat message, so this alert has
+      // none; a device-triggered SOS button (the primary Ch55 path) sends one.
+      let emergencyReply: string;
+      try {
+        const result = await this.sosService.trigger({
+          triggeredByUserId: userId,
+          source: "AI_ASSISTANT",
+        });
+        emergencyReply = result.message;
+      } catch (error) {
+        this.logger.error(`Failed to file an SOS alert from the AI Assistant: ${(error as Error).message}`);
+        emergencyReply =
+          "This sounds like it may be an emergency. Please contact your local emergency services " +
+          "immediately (e.g. dial 112 in India) — this assistant is not a substitute for emergency response.";
+      }
+      return this.persistAndReturn(conversationId, emergencyReply, { emergencyDetected: true });
     }
 
     const maxMessages = Number(

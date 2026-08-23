@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
@@ -21,6 +21,24 @@ export class AdminController {
   @Roles(UserRole.ADMIN, UserRole.SUPPORT)
   listPendingVerificationDocuments() {
     return this.adminService.listPendingVerificationDocuments();
+  }
+
+  // Ch137's Admin Console needs a way to browse providers to find one to act
+  // on, outside the pending-documents queue.
+  @Get("providers")
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  listProviders(
+    @Query("serviceAreaId") serviceAreaId?: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.adminService.listProviders({ serviceAreaId, cursor, limit: limit ? Number(limit) : undefined });
+  }
+
+  @Get("audit-log")
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  listAuditLog(@Query("cursor") cursor?: string, @Query("limit") limit?: string) {
+    return this.adminService.listAuditLog({ cursor, limit: limit ? Number(limit) : undefined });
   }
 
   @Patch("providers/verification-documents/:id/review")

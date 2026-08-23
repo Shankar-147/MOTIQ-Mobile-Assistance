@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "MOTIQ Customer & Provider apps (Volume VI, ADR 0018). See docs/decisions/0018-*.md.",
-  "main": "expo/AppEntry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",

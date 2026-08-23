@@ -67,7 +67,10 @@ Ch59, Phase 5. 1:1 with `User`, created lazily on first read/write. `smsEnabled`
 `actorUserId` (nullable — some actions are system-initiated), `action`, `entityType`, `entityId`, `metadata` (JSON), `createdAt`. Exists from day one per the master prompt's security principles and Ch61/Ch99's fraud/ops posture, even though this bootstrap phase only wires it to a small number of write paths (commission-rate changes, verification-status changes).
 
 ### AiConversation / AiConversationMessage
-Ch90, Phase 6. `AiConversation`: `userId`, `emergencyDetected`/`escalated` (Booleans — a real future review process, Ch91, can query which conversations left the assistant's normal path), `estimatedCostUsd` (Decimal, cumulative — Ch90's binding cost-per-conversation cap, see `ai-cost.util.ts`). `AiConversationMessage`: `conversationId`, `role` (`USER | ASSISTANT`), `content`. See ADR 0019 for what this assistant can and can't do (notably: it cannot redirect to a real SOS path, because Ch55 doesn't exist).
+Ch90, Phase 6. `AiConversation`: `userId`, `emergencyDetected`/`escalated` (Booleans — a real future review process, Ch91, can query which conversations left the assistant's normal path), `estimatedCostUsd` (Decimal, cumulative — Ch90's binding cost-per-conversation cap, see `ai-cost.util.ts`). `AiConversationMessage`: `conversationId`, `role` (`USER | ASSISTANT`), `content`. **As of Phase 9** (ADR 0021), `emergencyDetected` now also triggers a real `SosAlert` via a one-way `AiModule → SosModule` call.
+
+### SosAlert
+Ch55, Phase 9. The platform's highest-priority path — an internal escalation to MOTIQ's own Admin/Support team, not a real emergency-dispatch integration. `triggeredByUserId`, `serviceRequestId` (nullable — an emergency can happen before any request exists), `latitude`/`longitude` (nullable — the AI Assistant's trigger has no location), `status` (`TRIGGERED | ACKNOWLEDGED | RESOLVED | FALSE_ALARM`, guarded by `sos-state-machine.ts`), `source` (`MOBILE_BUTTON | AI_ASSISTANT`), `acknowledgedByUserId`/`acknowledgedAt`, `resolvedAt`/`resolutionNotes`. See ADR 0021.
 
 ### LocationPing
 Ch40's raw GPS trail store (implemented Phase 3, ADR 0015). `providerProfileId`, `latitude`/`longitude` (plain Floats, deliberately not PostGIS geography — see ADR 0015's "why not geography" note), `recordedAt`. Composite `(id, recordedAt)` primary key, not a plain single-column one, because TimescaleDB requires any unique/PK constraint on a hypertable to include the partitioning column. Written by `TrackingService` on every accepted (throttled) location update from a provider. `flaggedAsSuspicious` (Boolean, Phase 7, Ch99) — set when `gps-spoof.util.ts` detects a physically-implausible speed since the provider's previous ping; advisory only, never blocks the write.
@@ -77,7 +80,7 @@ Ch128, Phase 7. `userId`, `consentType` (`LOCATION_TRACKING` today), `version` (
 
 ## Deliberately out of scope for this phase (see Reconciliation Notes)
 
-- **SOS/emergency entities** (Ch55) — safety-critical path, needs its own dedicated design, not bootstrapped speculatively.
+- ~~SOS/emergency entities (Ch55)~~ — **implemented as of Phase 9, ADR 0021.** See the `SosAlert` entry above.
 - **Chat messages** (Ch78) — in-app chat is a Volume VII concern, not core-transaction-critical.
 
 ## Relationship summary

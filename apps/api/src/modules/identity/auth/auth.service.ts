@@ -152,6 +152,14 @@ export class AuthService {
     return this.issueTokenPair(user.id, user.role as unknown as UserRole, user.adminProfile.id);
   }
 
+  async getMfaStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { adminProfile: true } });
+    if (!user?.adminProfile) {
+      throw new NotFoundException(`Admin profile for user ${userId} not found.`);
+    }
+    return { mfaEnabled: user.adminProfile.mfaEnabled };
+  }
+
   /** Ch93 — step 1 of MFA enrollment: generate a secret, don't enable MFA
    * yet (mfaEnabled flips true only in confirmMfaEnrollment, once the admin
    * proves they can actually generate a valid code from it). */

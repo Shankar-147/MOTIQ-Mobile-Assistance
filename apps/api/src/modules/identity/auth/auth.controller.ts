@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { AuthenticatedUser, UserRole } from "@motiq/types";
 import { AuthService } from "./auth.service";
@@ -41,6 +41,15 @@ export class AuthController {
   @Post("refresh")
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto);
+  }
+
+  // The Admin Console's MFA settings page needs this to know whether to show
+  // "Enroll" or "Disable" — see docs/api-conventions.md.
+  @Get("admin/mfa")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  getMfaStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getMfaStatus(user.userId);
   }
 
   // Ch93 MFA enrollment — protected, since an admin must already be logged

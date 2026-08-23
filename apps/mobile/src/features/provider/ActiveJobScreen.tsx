@@ -5,6 +5,7 @@ import { RequestStatus } from "@motiq/types";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { SosButton } from "../sos/SosButton";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "ActiveJob">;
 
@@ -30,7 +31,7 @@ const STEP_LABEL: Record<RequestStatus, string> = {
  * validation, only the current-step label).
  */
 export function ActiveJobScreen({ route, navigation }: Props) {
-  const { assignmentId } = route.params;
+  const { assignmentId, serviceRequestId } = route.params;
   const [status, setStatus] = useState<RequestStatus>(RequestStatus.PROVIDER_ACCEPTED);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,6 +54,9 @@ export function ActiveJobScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.sosRow}>
+        <SosButton serviceRequestId={serviceRequestId} />
+      </View>
       <Text style={styles.statusLabel}>Current status</Text>
       <Text style={styles.statusValue}>{status}</Text>
 
@@ -71,6 +75,7 @@ export function ActiveJobScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, gap: 12, justifyContent: "center" },
+  sosRow: { position: "absolute", top: 16, right: 16 },
   statusLabel: { fontSize: 14, color: "#555", textAlign: "center" },
   statusValue: { fontSize: 24, fontWeight: "700", textAlign: "center", marginBottom: 24 },
   button: {

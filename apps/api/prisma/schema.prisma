@@ -8,8 +8,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  // `prisma migrate dev`'s shadow database needs PostGIS enabled on it too
+  // (Unsupported geography columns fail to validate otherwise, ADR 0002) —
+  // Prisma creates/drops a fresh shadow DB by default with no way to run our
+  // pre-migration extension script against it first, so this points at a
+  // persistent one instead, set up once with the same PostGIS extension.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 enum UserRole {
@@ -150,6 +156,7 @@ model User {
   notificationPreference  NotificationPreference?
   aiConversations         AiConversation[]
   consentRecords          ConsentRecord[]
+  sosAlerts               SosAlert[]
 
   @@map("users")
 }
@@ -601,4 +608,37 @@ model ConsentRecord {
 
   @@index([userId, consentType])
   @@map("consent_records")
+}
+
+enum SosAlertStatus {
+  TRIGGERED
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_ALARM
+}
+
+/// Ch55 — the platform's highest-priority path. `serviceRequestId` is
+/// nullable: a genuine emergency can happen before a request was ever
+/// created (Ch55 bypasses normal matching-queue priority entirely — this
+/// isn't matched to a provider like a ServiceRequest, it's an immediate
+/// escalation to MOTIQ's own Admin/Support team). `latitude`/`longitude` are
+/// nullable too — the AI Assistant's emergency pre-filter (Ch90) can trigger
+/// one with no known location. See ADR 0021.
+model SosAlert {
+  id                String         @id @default(uuid())
+  triggeredByUserId String
+  triggeredByUser   User           @relation(fields: [triggeredByUserId], references: [id])
+  serviceRequestId  String?
+  latitude          Float?
+  longitude         Float?
+  status            SosAlertStatus @default(TRIGGERED)
+  source            String
+  acknowledgedByUserId String?
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  createdAt         DateTime       @default(now())
+
+  @@index([status, createdAt])
+  @@map("sos_alerts")
 }
