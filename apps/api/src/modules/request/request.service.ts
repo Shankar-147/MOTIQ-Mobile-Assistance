@@ -53,12 +53,46 @@ export class RequestService {
     return created;
   }
 
+  /** Ch71 — the mobile Customer app's request history screen. Cursor-based,
+   * per docs/api-conventions.md's pagination convention (same pattern as
+   * ProviderService.listAll/listOwnJobs). */
+  async listByCustomer(customerProfileId: string, params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const requests = await this.prisma.serviceRequest.findMany({
+      where: { customerProfileId },
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: "desc" },
+    });
+
+    const hasMore = requests.length > limit;
+    const page = hasMore ? requests.slice(0, limit) : requests;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
   async findById(id: string) {
     const request = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!request) {
       throw new NotFoundException(`ServiceRequest ${id} not found`);
     }
-    return request;
+    return { ...request, pickupLocation: await this.getPickupLocation(id) };
+  }
+
+  /** pickupLocation is a PostGIS Unsupported column (ADR 0002) — invisible to
+   * the generated Prisma Client entirely, so it has to be read back via the
+   * same raw-SQL escape hatch used to write it (see create() above). Ch71's
+   * mobile live-tracking map needs the actual coordinates, not just "it's
+   * set somewhere" — this is the first read path for this column. */
+  private async getPickupLocation(serviceRequestId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const rows = await this.prisma.$queryRaw<{ latitude: number; longitude: number }[]>`
+      SELECT ST_Y("pickupLocation"::geometry) AS latitude, ST_X("pickupLocation"::geometry) AS longitude
+      FROM service_requests
+      WHERE id = ${serviceRequestId} AND "pickupLocation" IS NOT NULL
+    `;
+    return rows[0] ?? null;
   }
 
   /**

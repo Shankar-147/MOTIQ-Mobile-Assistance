@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser, ConsentType, RequestStatus, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
@@ -15,6 +15,23 @@ export class RequestController {
     private readonly requestService: RequestService,
     private readonly consentService: ConsentService,
   ) {}
+
+  // Ch71's mobile Customer app history screen — deliberately CUSTOMER-only:
+  // there's no equivalent "my requests" concept for Provider/Admin/Support
+  // (their history views are ProviderService.listOwnJobs and the Admin
+  // Console's provider browser, respectively).
+  @Get()
+  @Roles(UserRole.CUSTOMER)
+  async listMine(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.requestService.listByCustomer(user.profileId, {
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
 
   // Ch128 — a request always carries a pickupLocation, so creating one IS
   // location collection; the consent gate lives here rather than inside

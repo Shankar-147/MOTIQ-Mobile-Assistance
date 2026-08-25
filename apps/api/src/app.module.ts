@@ -10,6 +10,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { ServiceAreaModule } from "./modules/service-area/service-area.module";
 import { IdentityModule } from "./modules/identity/identity.module";
 import { ProviderModule } from "./modules/provider/provider.module";
+import { CustomerModule } from "./modules/customer/customer.module";
 import { RequestModule } from "./modules/request/request.module";
 import { MatchingModule } from "./modules/matching/matching.module";
 import { PricingModule } from "./modules/pricing/pricing.module";
@@ -61,6 +62,7 @@ import { SosModule } from "./modules/sos/sos.module";
     IdentityModule,
     ServiceAreaModule,
     ProviderModule,
+    CustomerModule,
     RequestModule,
     MatchingModule,
     PricingModule,
