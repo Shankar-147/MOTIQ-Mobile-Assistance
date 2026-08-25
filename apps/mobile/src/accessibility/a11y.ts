@@ -14,4 +14,7 @@ export const A11Y_LABELS = {
   acceptOfferButton: "Accept this job offer",
   rejectOfferButton: "Decline this job offer",
   submitRatingButton: "Submit rating",
+  logoutButton: "Log out",
+  saveProfileButton: "Save profile",
+  uploadDocumentButton: "Upload verification document",
 } as const;

@@ -15,4 +15,16 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
+// @gluestack-ui/themed -> @gluestack-ui/overlay -> @react-native-aria/interactions
+// -> @react-aria/utils's animation helper unconditionally `require("react-dom")`,
+// which doesn't exist for a React Native/Metro bundle and fails the whole build
+// ("Unable to resolve 'react-dom'"). The code path that actually calls it only
+// runs against a real DOM node (`'getAnimations' in ref.current`), which is never
+// true for a React Native ref — dead code on this platform, safe to stub. See
+// shims/react-dom.js and docs/roadmap.md for the full explanation.
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  "react-dom": path.resolve(projectRoot, "shims/react-dom.js"),
+};
+
 module.exports = config;

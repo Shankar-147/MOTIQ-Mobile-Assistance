@@ -18,7 +18,7 @@ An AI-powered roadside-assistance marketplace for India, connecting drivers to v
 
 - **Backend:** NestJS, TypeScript, Prisma, PostgreSQL + PostGIS + TimescaleDB, Socket.IO WebSocket gateway with a Redis scaling adapter (`apps/api`).
 - **Admin console:** Next.js, TypeScript, Tailwind CSS (`apps/web`) — this is the internal ops/support console (Ch137), **not** the customer-facing product.
-- **Mobile:** React Native (Expo), TypeScript (`apps/mobile`) — Customer and Provider apps as separate navigation stacks in one codebase (Volume VI, ADR 0008/ADR 0018). Verified running on a physical Android device and an Android emulator; iOS never exercised (no Xcode available).
+- **Mobile:** React Native (Expo), TypeScript, `@gluestack-ui/themed` as the UI component library (`apps/mobile`) — Customer and Provider apps as separate navigation stacks in one codebase (Volume VI, ADR 0008/ADR 0018). Verified running on a physical Android device and an Android emulator; iOS never exercised (no Xcode available). See "Mobile UI — gluestack-ui" below.
 - **Shared:** `packages/types` (TS enums/DTOs), `packages/config` (lint/tsconfig).
 
 See `docs/architecture.md` for the full system design and `docs/decisions/` for why each choice was made.
@@ -63,6 +63,68 @@ See `docs/api-conventions.md` in full before adding an endpoint. Highlights: `/a
 
 - `apps/web` (Next.js): accessible, responsive, real routes and a real data layer — not a single-page prototype. It talks to `apps/api` only through the versioned REST API, never direct DB access.
 - Multi-language support (English/Hindi/Tamil, Ch16) and accessibility (Ch73, Ch132, Ch138) are strategic requirements referenced throughout the Bible — keep component architecture flexible enough to support them even where not yet implemented.
+
+## Mobile UI — gluestack-ui
+
+`apps/mobile` uses **gluestack-ui** as the primary reusable UI component library for the React Native/Expo application.
+
+### gluestack-ui scope
+
+- gluestack-ui is a mobile-only UI dependency.
+- Use it in `apps/mobile` for reusable UI primitives and application components where an appropriate gluestack-ui component exists.
+- Do not introduce gluestack-ui into `apps/web`. The admin console remains Next.js + Tailwind CSS.
+- Do not replace existing business/domain logic with gluestack abstractions. gluestack-ui is a presentation-layer concern.
+- Customer and Provider experiences share the same mobile codebase and UI foundation. Avoid creating separate implementations of the same visual component solely because they belong to different navigation stacks.
+
+### Component-first rule
+
+Before creating a custom React Native UI primitive, check whether gluestack-ui already provides an appropriate component.
+
+Prefer:
+
+1. Existing project component
+2. Existing gluestack-ui component
+3. A thin project-specific wrapper around gluestack-ui
+4. A custom React Native primitive only when the above options are insufficient
+
+Do not introduce another UI library to solve a problem already covered by gluestack-ui.
+
+Examples of UI primitives that should generally use gluestack-ui when appropriate:
+
+- Button
+- Input / Form controls
+- Text
+- Heading
+- Box / layout primitives
+- Card
+- Modal
+- Alert
+- Toast
+- Badge
+- Avatar
+- Spinner / loading indicators
+- Select / menus
+- Tabs
+- Dialogs
+- Pressable interactive elements
+
+### Project component architecture
+
+Keep application-specific components separate from the underlying UI library.
+
+Preferred structure:
+
+```text
+apps/mobile/
+├── components/
+│   ├── ui/
+│   │   └── <project-ui-wrappers>
+│   ├── customer/
+│   └── provider/
+├── screens/
+├── navigation/
+├── theme/
+└── ...
 
 ## Testing expectations
 
