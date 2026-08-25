@@ -60,6 +60,45 @@ export class ProviderService {
     };
   }
 
+  /** Ch71's mobile Customer app tracking screen — a small, deliberately
+   * non-sensitive slice of a provider's profile (no phone, no exact
+   * location) so a customer can see who's coming without either side
+   * reaching into the other's full profile. */
+  async findPublicById(id: string) {
+    const provider = await this.findById(id);
+    return {
+      id: provider.id,
+      businessName: provider.businessName,
+      ratingAverage: provider.ratingAverage,
+      verificationStatus: provider.verificationStatus,
+    };
+  }
+
+  /** Ch72's mobile Provider app job-history screen — every Assignment this
+   * provider was ever offered, whatever the outcome, newest first. Cursor-
+   * based, per docs/api-conventions.md's pagination convention. */
+  async listOwnJobs(providerProfileId: string, params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const jobs = await this.prisma.assignment.findMany({
+      where: { providerProfileId },
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { offeredAt: "desc" },
+      include: {
+        serviceRequest: {
+          select: { id: true, issueType: true, status: true, createdAt: true },
+        },
+      },
+    });
+
+    const hasMore = jobs.length > limit;
+    const page = hasMore ? jobs.slice(0, limit) : jobs;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
   /**
    * A provider going online/offline and updating their live location — the
    * write side of the Ch39 geospatial index MatchingService reads from.

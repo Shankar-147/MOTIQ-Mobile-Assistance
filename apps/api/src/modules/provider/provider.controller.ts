@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser, ConsentType, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
@@ -16,6 +16,40 @@ export class ProviderController {
     private readonly providerService: ProviderService,
     private readonly consentService: ConsentService,
   ) {}
+
+  // Ch72's mobile Provider app Home/Profile screens — a provider reading
+  // their own tier, trust score, and stats.
+  @Get("me")
+  @Roles(UserRole.PROVIDER)
+  getOwnProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.providerService.findById(user.profileId);
+  }
+
+  // Ch72's mobile Provider app job-history screen.
+  @Get("me/jobs")
+  @Roles(UserRole.PROVIDER)
+  listOwnJobs(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.providerService.listOwnJobs(user.profileId, {
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  // Ch71's mobile Customer app tracking screen — a customer looking up the
+  // provider assigned to their request. Deliberately open to any
+  // authenticated role, same posture as the other findOne()-style reads in
+  // this bootstrap phase (see docs/roadmap.md's Reconciliation Notes on
+  // ownership checks not being built out everywhere yet); the payload
+  // itself is already scoped down to non-sensitive fields (findPublicById).
+  @Get(":id/public")
+  @Roles(UserRole.CUSTOMER, UserRole.PROVIDER, UserRole.ADMIN, UserRole.SUPPORT)
+  getPublicProfile(@Param("id") id: string) {
+    return this.providerService.findPublicById(id);
+  }
 
   // Ch128 — gated only when this update actually carries a location (going
   // online/updating position); toggling OFFLINE with no location never needs it.
