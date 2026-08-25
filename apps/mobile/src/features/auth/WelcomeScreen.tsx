@@ -1,51 +1,44 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Box, Center, Heading, Text, VStack } from "@gluestack-ui/themed";
+import { LifeBuoy, Wrench } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { UserRole } from "@motiq/types";
 import { AuthStackParamList } from "../../navigation/types";
-import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { Button } from "../../components/ui";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Welcome">;
 
 export function WelcomeScreen({ navigation }: Props) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>MOTIQ</Text>
-      <Text style={styles.subtitle}>Roadside assistance, on demand.</Text>
+    <Box flex={1} bg="$backgroundLight0">
+      <Center flex={1} bg="$primary600" borderBottomLeftRadius="$3xl" borderBottomRightRadius="$3xl">
+        <VStack alignItems="center" space="md">
+          <Center w={88} h={88} borderRadius="$full" bg="rgba(255,255,255,0.16)">
+            <LifeBuoy size={44} color="#FFFFFF" strokeWidth={1.75} />
+          </Center>
+          <Heading size="4xl" color="$white" fontWeight="$extrabold">
+            MOTIQ
+          </Heading>
+          <Text color="rgba(255,255,255,0.85)" size="md" textAlign="center" px="$8">
+            Roadside assistance, on demand.
+          </Text>
+        </VStack>
+      </Center>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Continue as a customer"
-        style={styles.button}
-        onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.CUSTOMER })}
-      >
-        <Text style={styles.buttonText}>I need assistance (Customer)</Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Continue as a provider"
-        style={[styles.button, styles.secondaryButton]}
-        onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.PROVIDER })}
-      >
-        <Text style={styles.buttonText}>I provide roadside assistance (Provider)</Text>
-      </Pressable>
-    </View>
+      <VStack flex={1} px="$6" pt="$8" pb="$6" space="md" justifyContent="flex-end">
+        <Button
+          label="I need assistance"
+          accessibilityLabel="Continue as a customer"
+          onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.CUSTOMER })}
+        />
+        <Button
+          label="I provide roadside assistance"
+          variant="outline"
+          icon={Wrench}
+          accessibilityLabel="Continue as a provider"
+          onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.PROVIDER })}
+        />
+      </VStack>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 16 },
-  title: { fontSize: 32, fontWeight: "700", textAlign: "center" },
-  subtitle: { fontSize: 16, textAlign: "center", marginBottom: 24, color: "#555" },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1d4ed8",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-  },
-  secondaryButton: { backgroundColor: "#334155" },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600", textAlign: "center" },
-});

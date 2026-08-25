@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Center, Heading, Text, VStack } from "@gluestack-ui/themed";
+import { ShieldCheck } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { UserRole } from "@motiq/types";
 import { AuthStackParamList } from "../../navigation/types";
 import { authApi } from "../../api/authApi";
 import { useAuthStore } from "../../store/authStore";
-import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { Button, Input } from "../../components/ui";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "OtpVerify">;
 
@@ -53,78 +54,46 @@ export function OtpVerifyScreen({ route }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Code sent to {phone}</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="number-pad"
-        placeholder="6-digit code"
-        value={code}
-        onChangeText={setCode}
-        accessibilityLabel="Verification code"
-      />
+    <VStack flex={1} bg="$backgroundLight0" p="$6" space="md">
+      <Center py="$6">
+        <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
+          <ShieldCheck size={32} color="#4F46E5" />
+        </Center>
+        <Heading size="xl">Enter your code</Heading>
+        <Text color="$textLight500" textAlign="center" mt="$1">
+          Sent to {phone}
+        </Text>
+      </Center>
+
+      <Input label="Verification code" value={code} onChangeText={setCode} placeholder="6-digit code" />
 
       {intendedRole === UserRole.CUSTOMER ? (
-        <TextInput
-          style={styles.input}
-          placeholder="Your name (new accounts only)"
-          value={displayName}
-          onChangeText={setDisplayName}
-          accessibilityLabel="Display name"
-        />
+        <Input label="Your name" value={displayName} onChangeText={setDisplayName} placeholder="New accounts only" />
       ) : (
         <>
-          <TextInput
-            style={styles.input}
-            placeholder="Business name (new accounts only)"
-            value={businessName}
-            onChangeText={setBusinessName}
-            accessibilityLabel="Business name"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Service Area ID (new accounts only)"
+          <Input label="Business name" value={businessName} onChangeText={setBusinessName} placeholder="New accounts only" />
+          <Input
+            label="Service Area ID"
             value={serviceAreaId}
             onChangeText={setServiceAreaId}
-            accessibilityLabel="Service area ID"
+            placeholder="New accounts only"
           />
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text color="$error600" size="sm">
+          {error}
+        </Text>
+      ) : null}
 
-      <Pressable
-        accessibilityRole="button"
+      <Button
+        label={submitting ? "Verifying…" : "Verify"}
         accessibilityLabel="Verify code"
-        style={styles.button}
         disabled={submitting || code.length < 6}
+        loading={submitting}
         onPress={handleVerify}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Verifying…" : "Verify"}</Text>
-      </Pressable>
-    </View>
+      />
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12 },
-  label: { fontSize: 14, color: "#555" },
-  input: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  error: { color: "#dc2626" },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1d4ed8",
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});

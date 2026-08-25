@@ -1,37 +1,60 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Box, Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
 import * as Location from "expo-location";
+import { Star } from "lucide-react-native";
+import type { CompositeScreenProps } from "@react-navigation/native";
+import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { PresenceStatus } from "@motiq/types";
-import { ProviderStackParamList } from "../../navigation/types";
+import { PresenceStatus, ProviderVerificationStatus } from "@motiq/types";
+import { ProviderStackParamList, ProviderTabParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { consentApi } from "../../api/consentApi";
 import { connectTrackingSocket, disconnectTrackingSocket, sendPresenceHeartbeat } from "../../realtime/trackingSocket";
 import { startForegroundLocationTracking, stopLocationTracking } from "./locationTracking";
 import { registerForPushNotifications } from "../../notifications/pushRegistration";
 import { usePendingOfferStore } from "../../store/pendingOfferStore";
-import { MIN_TOUCH_TARGET_SIZE, A11Y_LABELS } from "../../accessibility/a11y";
+import { A11Y_LABELS } from "../../accessibility/a11y";
+import { Badge, Button, Card } from "../../components/ui";
+import { verificationBadgeTone } from "./verificationBadgeTone";
 
-type Props = NativeStackScreenProps<ProviderStackParamList, "GoOnline">;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<ProviderTabParamList, "Home">,
+  NativeStackScreenProps<ProviderStackParamList>
+>;
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 
+interface OwnProfileSummary {
+  businessName: string;
+  verificationStatus: ProviderVerificationStatus;
+  ratingAverage: string;
+  completedJobCount: number;
+}
+
 /**
- * Ch72's presence toggle — the provider-side entry point that mirrors the
- * server's PresenceStatus state machine (Ch76). Going online starts the
- * tracking socket, foreground location updates, and the heartbeat; going
- * offline tears all three down, matching the server's own 30s grace-period
- * expectation (presence-grace.util.ts) rather than leaving a stale
- * "still connected" socket around.
+ * Ch72's Home tab: the presence toggle that mirrors the server's
+ * PresenceStatus state machine (Ch76), plus a quick stats card (tier,
+ * rating, completed jobs) so a provider isn't limited to a bare on/off
+ * switch. Going online starts the tracking socket, foreground location
+ * updates, and the heartbeat; going offline tears all three down, matching
+ * the server's own 30s grace-period expectation (presence-grace.util.ts).
  */
 export function GoOnlineScreen({ navigation }: Props) {
   const [online, setOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<OwnProfileSummary | null>(null);
   const pendingOffer = usePendingOfferStore((state) => state.pendingOffer);
   const setPendingOffer = usePendingOfferStore((state) => state.setPendingOffer);
 
   useEffect(() => {
     registerForPushNotifications().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    providerApi
+      .getOwnProfile()
+      .then((response) => setProfile(response.data as OwnProfileSummary))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -78,39 +101,59 @@ export function GoOnlineScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.status}>{online ? "You're online" : "You're offline"}</Text>
-      <Text style={styles.hint}>
-        {online
-          ? "You'll receive job offers as a push notification while the app is open."
-          : "Go online to start receiving nearby job offers."}
-      </Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable
-        accessibilityRole="button"
+    <VStack flex={1} bg="$backgroundLight0" p="$6" justifyContent="center" space="lg">
+      {profile ? (
+        <Card>
+          <Heading size="lg">{profile.businessName}</Heading>
+          <Box mt="$1" mb="$1">
+            <Badge label={profile.verificationStatus.replace("_", " ")} tone={verificationBadgeTone(profile.verificationStatus)} />
+          </Box>
+          <HStack space="xl" mt="$3">
+            <VStack alignItems="center">
+              <HStack alignItems="center" space="xs">
+                <Star size={16} color="#D97706" fill="#D97706" />
+                <Text fontWeight="$extrabold" size="xl">
+                  {Number(profile.ratingAverage).toFixed(1)}
+                </Text>
+              </HStack>
+              <Text size="xs" color="$textLight500">
+                Rating
+              </Text>
+            </VStack>
+            <VStack alignItems="center">
+              <Text fontWeight="$extrabold" size="xl">
+                {profile.completedJobCount}
+              </Text>
+              <Text size="xs" color="$textLight500">
+                Jobs done
+              </Text>
+            </VStack>
+          </HStack>
+        </Card>
+      ) : null}
+
+      <VStack space="xs" alignItems="center">
+        <Heading size="2xl" textAlign="center">
+          {online ? "You're online" : "You're offline"}
+        </Heading>
+        <Text color="$textLight500" textAlign="center">
+          {online
+            ? "You'll receive job offers as a push notification while the app is open."
+            : "Go online to start receiving nearby job offers."}
+        </Text>
+        {error ? (
+          <Text color="$error600" textAlign="center">
+            {error}
+          </Text>
+        ) : null}
+      </VStack>
+
+      <Button
+        label={online ? "Go offline" : "Go online"}
+        variant={online ? "danger" : "success"}
         accessibilityLabel={A11Y_LABELS.goOnlineToggle}
-        style={[styles.button, online && styles.buttonOnline]}
         onPress={handleToggle}
-      >
-        <Text style={styles.buttonText}>{online ? "Go offline" : "Go online"}</Text>
-      </Pressable>
-    </View>
+      />
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12, justifyContent: "center" },
-  status: { fontSize: 24, fontWeight: "700", textAlign: "center" },
-  hint: { textAlign: "center", color: "#64748b" },
-  error: { color: "#dc2626", textAlign: "center" },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#16a34a",
-    borderRadius: 8,
-    marginTop: 24,
-  },
-  buttonOnline: { backgroundColor: "#dc2626" },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-});

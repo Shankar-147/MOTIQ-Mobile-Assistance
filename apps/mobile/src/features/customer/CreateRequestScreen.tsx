@@ -1,29 +1,49 @@
-import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
 import * as Location from "expo-location";
+import { LifeBuoy, MapPinned } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { IssueType } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
 import { consentApi } from "../../api/consentApi";
+import { serviceAreaApi } from "../../api/serviceAreaApi";
 import { enqueueServiceRequest } from "../../api/offlineQueue";
 import { useConnectivityStore } from "../../store/connectivityStore";
-import { MIN_TOUCH_TARGET_SIZE, A11Y_LABELS } from "../../accessibility/a11y";
+import { A11Y_LABELS } from "../../accessibility/a11y";
+import { Button, Chip, Input } from "../../components/ui";
+import { ISSUE_ICONS } from "../../theme/issueIcons";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "CreateRequest">;
 
 const ISSUE_TYPES = Object.values(IssueType);
 
+interface ServiceAreaOption {
+  id: string;
+  name: string;
+}
+
 export function CreateRequestScreen({ navigation }: Props) {
-  // No public "list Service Areas" endpoint exists yet for an authenticated
-  // customer to pick from (see docs/roadmap.md's Reconciliation Notes) — a
-  // free-text ID is this phase's honest stand-in for a real picker.
+  const [serviceAreas, setServiceAreas] = useState<ServiceAreaOption[]>([]);
   const [serviceAreaId, setServiceAreaId] = useState("");
   const [issueType, setIssueType] = useState<IssueType>(IssueType.OTHER);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const isConnected = useConnectivityStore((state) => state.isConnected);
+
+  useEffect(() => {
+    serviceAreaApi
+      .list()
+      .then((response) => {
+        const areas = response.data as ServiceAreaOption[];
+        setServiceAreas(areas);
+        if (areas.length > 0) {
+          setServiceAreaId((current) => current || areas[0].id);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function handleSubmit() {
     setStatus(null);
@@ -77,100 +97,88 @@ export function CreateRequestScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      {!isConnected ? <Text style={styles.offlineBanner}>You're offline</Text> : null}
+    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
+      <VStack space="lg">
+        <VStack space="xs">
+          <Heading size="xl">Request assistance</Heading>
+          <Text color="$textLight500">Tell us what's wrong and where you are.</Text>
+        </VStack>
 
-      <Text style={styles.label}>What's wrong?</Text>
-      <View style={styles.issueRow}>
-        {ISSUE_TYPES.map((type) => (
-          <Pressable
-            key={type}
-            accessibilityRole="button"
-            accessibilityLabel={`Issue type: ${type}`}
-            style={[styles.issueChip, issueType === type && styles.issueChipSelected]}
-            onPress={() => setIssueType(type)}
-          >
-            <Text style={issueType === type ? styles.issueChipTextSelected : styles.issueChipText}>
-              {type.replace("_", " ")}
+        {!isConnected ? (
+          <Text bg="$warning100" color="$warning700" p="$2" borderRadius="$md" textAlign="center" fontWeight="$semibold">
+            You're offline
+          </Text>
+        ) : null}
+
+        <VStack space="xs">
+          <HStack alignItems="center" space="xs">
+            <LifeBuoy size={14} color="#64748B" />
+            <Text size="sm" color="$textLight500" fontWeight="$semibold">
+              What's wrong?
             </Text>
-          </Pressable>
-        ))}
-      </View>
+          </HStack>
+          <HStack flexWrap="wrap" gap="$2">
+            {ISSUE_TYPES.map((type) => (
+              <Chip
+                key={type}
+                label={type.replace("_", " ")}
+                icon={ISSUE_ICONS[type]}
+                selected={issueType === type}
+                accessibilityLabel={`Issue type: ${type}`}
+                onPress={() => setIssueType(type)}
+              />
+            ))}
+          </HStack>
+        </VStack>
 
-      <Text style={styles.label}>Service Area ID</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ask support for your city's Service Area ID"
-        value={serviceAreaId}
-        onChangeText={setServiceAreaId}
-        accessibilityLabel="Service area ID"
-      />
+        <VStack space="xs">
+          <HStack alignItems="center" space="xs">
+            <MapPinned size={14} color="#64748B" />
+            <Text size="sm" color="$textLight500" fontWeight="$semibold">
+              Service area
+            </Text>
+          </HStack>
+          {serviceAreas.length > 0 ? (
+            <HStack flexWrap="wrap" gap="$2">
+              {serviceAreas.map((area) => (
+                <Chip
+                  key={area.id}
+                  label={area.name}
+                  selected={serviceAreaId === area.id}
+                  accessibilityLabel={`Service area: ${area.name}`}
+                  onPress={() => setServiceAreaId(area.id)}
+                />
+              ))}
+            </HStack>
+          ) : (
+            <Text color="$textLight500">Loading service areas…</Text>
+          )}
+        </VStack>
 
-      <Text style={styles.label}>Description (optional)</Text>
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        placeholder="Anything the provider should know"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        accessibilityLabel="Description"
-      />
+        <Input
+          label="Description (optional)"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Anything the provider should know"
+          multiline
+        />
 
-      {status ? <Text style={styles.status}>{status}</Text> : null}
+        {status ? (
+          <Text color="$textLight700" size="sm">
+            {status}
+          </Text>
+        ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={A11Y_LABELS.createRequestButton}
-        style={styles.button}
-        disabled={submitting || !serviceAreaId}
-        onPress={handleSubmit}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Requesting…" : "Request assistance"}</Text>
-      </Pressable>
-    </View>
+        <Button
+          label={submitting ? "Requesting…" : "Request assistance"}
+          variant="danger"
+          icon={LifeBuoy}
+          accessibilityLabel={A11Y_LABELS.createRequestButton}
+          disabled={submitting || !serviceAreaId}
+          loading={submitting}
+          onPress={handleSubmit}
+        />
+      </VStack>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12 },
-  offlineBanner: {
-    backgroundColor: "#fef3c7",
-    color: "#92400e",
-    padding: 8,
-    borderRadius: 6,
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  label: { fontSize: 14, color: "#555", marginTop: 8 },
-  issueRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  issueChip: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-  },
-  issueChipSelected: { backgroundColor: "#1d4ed8", borderColor: "#1d4ed8" },
-  issueChipText: { color: "#334155" },
-  issueChipTextSelected: { color: "#fff", fontWeight: "600" },
-  input: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  multiline: { minHeight: 80, textAlignVertical: "top", paddingVertical: 12 },
-  status: { color: "#334155" },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#dc2626",
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-});

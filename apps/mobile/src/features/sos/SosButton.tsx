@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text } from "react-native";
+import { Alert } from "react-native";
+import { HStack, Pressable, Spinner, Text } from "@gluestack-ui/themed";
+import { Siren } from "lucide-react-native";
 import * as Location from "expo-location";
 import { sosApi } from "../../api/sosApi";
 import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
@@ -56,22 +58,24 @@ export function SosButton({ serviceRequestId }: { serviceRequestId?: string }) {
       accessibilityLabel="Send SOS emergency alert"
       onPress={handlePress}
       disabled={isSending}
-      style={styles.button}
+      minWidth={MIN_TOUCH_TARGET_SIZE}
+      minHeight={MIN_TOUCH_TARGET_SIZE}
+      borderRadius={MIN_TOUCH_TARGET_SIZE / 2}
+      bg="$error700"
+      alignItems="center"
+      justifyContent="center"
+      px="$4"
     >
-      {isSending ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>SOS</Text>}
+      {isSending ? (
+        <Spinner color="$white" />
+      ) : (
+        <HStack alignItems="center" space="xs">
+          <Siren size={14} color="#FFFFFF" />
+          <Text color="$white" fontWeight="$extrabold" size="sm" letterSpacing={0.5}>
+            SOS
+          </Text>
+        </HStack>
+      )}
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    minWidth: MIN_TOUCH_TARGET_SIZE,
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    borderRadius: MIN_TOUCH_TARGET_SIZE / 2,
-    backgroundColor: "#b91c1c",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-  },
-  text: { color: "#fff", fontWeight: "800", fontSize: 14, letterSpacing: 0.5 },
-});

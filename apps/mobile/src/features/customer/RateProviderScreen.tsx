@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Center, Heading, HStack, Pressable, VStack } from "@gluestack-ui/themed";
+import { Star } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
-import { MIN_TOUCH_TARGET_SIZE, A11Y_LABELS } from "../../accessibility/a11y";
+import { A11Y_LABELS, MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { Button, Input } from "../../components/ui";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "RateProvider">;
 
@@ -19,74 +21,50 @@ export function RateProviderScreen({ route, navigation }: Props) {
     setSubmitting(true);
     try {
       await requestApi.submitRating(serviceRequestId, stars, comment || undefined);
-      navigation.navigate("CreateRequest");
+      navigation.navigate("MainTabs");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>How was your service?</Text>
-      <View style={styles.starRow}>
+    <VStack flex={1} bg="$backgroundLight0" p="$6" space="lg">
+      <Center py="$4">
+        <Heading size="xl" mb="$1">
+          How was your service?
+        </Heading>
+      </Center>
+
+      <HStack space="sm" justifyContent="center">
         {STAR_VALUES.map((value) => (
           <Pressable
             key={value}
             accessibilityRole="button"
             accessibilityLabel={`Rate ${value} stars`}
-            style={styles.star}
             onPress={() => setStars(value)}
+            minWidth={MIN_TOUCH_TARGET_SIZE}
+            minHeight={MIN_TOUCH_TARGET_SIZE}
+            alignItems="center"
+            justifyContent="center"
           >
-            <Text style={value <= stars ? styles.starFilled : styles.starEmpty}>★</Text>
+            <Star
+              size={36}
+              color={value <= stars ? "#D97706" : "#CBD5E1"}
+              fill={value <= stars ? "#D97706" : "transparent"}
+            />
           </Pressable>
         ))}
-      </View>
+      </HStack>
 
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        placeholder="Leave a comment (optional)"
-        value={comment}
-        onChangeText={setComment}
-        multiline
-        accessibilityLabel="Comment"
-      />
+      <Input label="Comment (optional)" value={comment} onChangeText={setComment} placeholder="Leave a comment" multiline />
 
-      <Pressable
-        accessibilityRole="button"
+      <Button
+        label={submitting ? "Submitting…" : "Submit rating"}
         accessibilityLabel={A11Y_LABELS.submitRatingButton}
-        style={styles.button}
         disabled={submitting}
+        loading={submitting}
         onPress={handleSubmit}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Submitting…" : "Submit rating"}</Text>
-      </Pressable>
-    </View>
+      />
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12 },
-  label: { fontSize: 16, fontWeight: "600" },
-  starRow: { flexDirection: "row", gap: 8 },
-  star: { minWidth: MIN_TOUCH_TARGET_SIZE, minHeight: MIN_TOUCH_TARGET_SIZE, alignItems: "center", justifyContent: "center" },
-  starFilled: { fontSize: 32, color: "#f59e0b" },
-  starEmpty: { fontSize: 32, color: "#cbd5e1" },
-  input: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  multiline: { minHeight: 80, textAlignVertical: "top", paddingVertical: 12 },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1d4ed8",
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
