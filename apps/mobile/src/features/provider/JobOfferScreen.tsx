@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Center, Heading, Text, VStack } from "@gluestack-ui/themed";
+import { Check, PackageCheck, X } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
-import { MIN_TOUCH_TARGET_SIZE, A11Y_LABELS } from "../../accessibility/a11y";
+import { A11Y_LABELS } from "../../accessibility/a11y";
+import { Button } from "../../components/ui";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "JobOffer">;
 
@@ -33,58 +35,42 @@ export function JobOfferScreen({ route, navigation }: Props) {
     setSubmitting(true);
     try {
       await providerApi.rejectOffer(assignmentId);
-      navigation.replace("GoOnline");
+      navigation.replace("MainTabs");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>New job offer</Text>
-      <Text style={styles.hint}>Accept quickly — offers expire after a timeout window.</Text>
+    <VStack flex={1} bg="$backgroundLight0" p="$6" justifyContent="center" space="md">
+      <Center mb="$4">
+        <Center w={80} h={80} borderRadius="$full" bg="$primary50" mb="$4">
+          <PackageCheck size={36} color="#4F46E5" />
+        </Center>
+        <Heading size="2xl" textAlign="center">
+          New job offer
+        </Heading>
+        <Text color="$textLight500" textAlign="center" mt="$1">
+          Accept quickly — offers expire after a timeout window.
+        </Text>
+      </Center>
 
-      <Pressable
-        accessibilityRole="button"
+      <Button
+        label="Accept"
+        variant="success"
+        icon={Check}
         accessibilityLabel={A11Y_LABELS.acceptOfferButton}
-        style={styles.acceptButton}
         disabled={submitting}
         onPress={handleAccept}
-      >
-        <Text style={styles.buttonText}>Accept</Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
+      />
+      <Button
+        label="Decline"
+        variant="outline"
+        icon={X}
         accessibilityLabel={A11Y_LABELS.rejectOfferButton}
-        style={styles.rejectButton}
         disabled={submitting}
         onPress={handleReject}
-      >
-        <Text style={styles.buttonText}>Decline</Text>
-      </Pressable>
-    </View>
+      />
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "700", textAlign: "center" },
-  hint: { textAlign: "center", color: "#64748b", marginBottom: 24 },
-  acceptButton: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#16a34a",
-    borderRadius: 8,
-  },
-  rejectButton: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#64748b",
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-});

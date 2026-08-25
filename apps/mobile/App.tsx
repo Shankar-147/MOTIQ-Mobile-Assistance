@@ -1,15 +1,18 @@
 import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
+import { GluestackUIProvider } from "@gluestack-ui/themed";
+import { motiqConfig } from "./src/theme/gluestackConfig";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { useAuthStore } from "./src/store/authStore";
 import { useConnectivityStore } from "./src/store/connectivityStore";
 import { usePendingOfferStore } from "./src/store/pendingOfferStore";
 import { watchConnectivityAndFlush } from "./src/api/offlineQueue";
-import { addNotificationTapListener } from "./src/notifications/pushRegistration";
+import { addNotificationTapListener, registerForPushNotifications } from "./src/notifications/pushRegistration";
 
 export default function App() {
   const hydrate = useAuthStore((state) => state.hydrate);
+  const userId = useAuthStore((state) => state.user?.userId);
   const setConnected = useConnectivityStore((state) => state.setConnected);
   const setPendingOffer = usePendingOfferStore((state) => state.setPendingOffer);
 
@@ -36,10 +39,24 @@ export default function App() {
     };
   }, [hydrate, setConnected, setPendingOffer]);
 
+  // Ch70 — registers the device's push token once a session exists, for
+  // either role (Customer receives request/payment pushes, Provider
+  // receives job-offer pushes — see notification-event.listener.ts on the
+  // backend). GoOnlineScreen also registers on top of this for a Provider
+  // going online, which is a harmless re-registration (registerDeviceToken
+  // upserts by token), not a second source of truth.
+  useEffect(() => {
+    if (userId) {
+      registerForPushNotifications().catch(() => undefined);
+    }
+  }, [userId]);
+
   return (
-    <NavigationContainer>
-      <StatusBar style="auto" />
-      <RootNavigator />
-    </NavigationContainer>
+    <GluestackUIProvider config={motiqConfig}>
+      <NavigationContainer>
+        <StatusBar style="auto" />
+        <RootNavigator />
+      </NavigationContainer>
+    </GluestackUIProvider>
   );
 }

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Center, Heading, Text, VStack } from "@gluestack-ui/themed";
+import { Smartphone } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/types";
 import { authApi } from "../../api/authApi";
-import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { Button, Input } from "../../components/ui";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "PhoneEntry">;
 
@@ -27,49 +28,30 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Phone number</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="phone-pad"
-        placeholder="+91XXXXXXXXXX"
-        value={phone}
-        onChangeText={setPhone}
-        accessibilityLabel="Phone number"
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable
-        accessibilityRole="button"
+    <VStack flex={1} bg="$backgroundLight0" p="$6" space="md">
+      <Center py="$6">
+        <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
+          <Smartphone size={32} color="#4F46E5" />
+        </Center>
+        <Heading size="xl">What's your number?</Heading>
+        <Text color="$textLight500" textAlign="center" mt="$1">
+          We'll text you a one-time code to sign in.
+        </Text>
+      </Center>
+
+      <Input label="Phone number" value={phone} onChangeText={setPhone} placeholder="+91XXXXXXXXXX" />
+      {error ? (
+        <Text color="$error600" size="sm">
+          {error}
+        </Text>
+      ) : null}
+      <Button
+        label={submitting ? "Sending…" : "Send code"}
         accessibilityLabel="Send verification code"
-        style={styles.button}
         disabled={submitting || phone.length < 8}
+        loading={submitting}
         onPress={handleSubmit}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Sending…" : "Send code"}</Text>
-      </Pressable>
-    </View>
+      />
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12 },
-  label: { fontSize: 14, color: "#555" },
-  input: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  error: { color: "#dc2626" },
-  button: {
-    minHeight: MIN_TOUCH_TARGET_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1d4ed8",
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
