@@ -89,6 +89,11 @@ export class NotificationService {
       await this.smsGateway.sendSms({ to: phone, body });
     } catch (error) {
       this.logger.error(`Twilio OTP send to ${phone} failed: ${(error as Error).message}`);
+      // The code would otherwise be unrecoverable — dispatchSms's unconfigured
+      // fallback only fires when no gateway is wired at all, not when a wired
+      // gateway's send fails (e.g. India's DLT template requirement rejecting
+      // trial-account SMS). Same dev safety net, one more trigger condition.
+      this.logger.log(`[DEV ONLY — SMS send failed, Ch32] OTP for ${phone}: ${code} (expires in ${ttlSeconds}s)`);
     }
   }
 

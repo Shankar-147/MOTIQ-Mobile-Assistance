@@ -192,6 +192,13 @@ export class PaymentService {
     return { handled: true as const };
   }
 
+  /** Ch57's mobile receipt screen — returns null (not a 404) when a request
+   * hasn't reached COMPLETED/settlement yet, which is a normal transient
+   * state, not an error. */
+  async findByServiceRequestId(serviceRequestId: string) {
+    return this.prisma.payment.findUnique({ where: { serviceRequestId } });
+  }
+
   private emitSettled(serviceRequestId: string, paymentId: string) {
     this.events.emit(DomainEvents.PaymentSettled, {
       serviceRequestId,

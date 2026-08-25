@@ -77,8 +77,14 @@ A `TokenPairResponse` (`{ accessToken, refreshToken, expiresIn }`, shared shape 
 | Endpoint | Role | Purpose |
 |---|---|---|
 | `POST /api/v1/requests` | Customer | Creates a request; `RequestCreated` auto-triggers matching. |
+| `GET /api/v1/requests` | Customer | List own requests, cursor-paginated — added Phase 10 for the mobile History screen. |
 | `GET /api/v1/requests/:id` | Customer (own), Provider, Admin, Support | Read one request. |
+| `GET /api/v1/requests/:id/payment` | Customer (own), Provider, Admin, Support | Read the settled `Payment` for a request, or `null` if not yet settled — added Phase 10 for the mobile receipt screen. Lives on `PaymentController`, not `RequestController` — see payment.module.ts's comment on the circular-import reason. |
 | `PATCH /api/v1/requests/:id/cancel` | Customer (own) | `→ CANCELLED_BY_CUSTOMER`. |
+| `GET\|PATCH /api/v1/customers/me` | Customer | Read/update own `CustomerProfile` (`displayName`, `preferredLanguage`, `defaultServiceAreaId`) — added Phase 10 for the mobile Profile screen. |
+| `GET /api/v1/providers/me` | Provider | Read own `ProviderProfile` (tier, trust score, stats) — added Phase 10 for the mobile Home/Profile screens. |
+| `GET /api/v1/providers/me/jobs` | Provider | List own `Assignment` history, cursor-paginated — added Phase 10 for the mobile job-history screen. |
+| `GET /api/v1/providers/:id/public` | Customer, Provider, Admin, Support | Non-sensitive slice of another provider's profile (`businessName`, `ratingAverage`, `verificationStatus`) — added Phase 11 so a customer's live-tracking map can show who's coming. |
 | `PATCH /api/v1/providers/me/presence` | Provider | Go online/offline, update live location. |
 | `POST /api/v1/assignments/:id/accept` \| `/reject` | Provider (own offer) | Reject immediately triggers reassignment. |
 | `PATCH /api/v1/assignments/:id/job-status` | Provider (own, accepted) | `PROVIDER_EN_ROUTE → ... → COMPLETED`; `COMPLETED` auto-triggers Payment settlement. |
