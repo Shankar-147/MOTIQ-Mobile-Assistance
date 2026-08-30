@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-reanimated/android/build.gradle b/node_modules/react-native-reanimated/android/build.gradle
+index 6b73a69..9cd684a 100644
+--- a/node_modules/react-native-reanimated/android/build.gradle
++++ b/node_modules/react-native-reanimated/android/build.gradle
+@@ -195,6 +195,10 @@ android {
+         externalNativeBuild {
+             cmake {
+                 arguments "-DANDROID_STL=c++_shared",
++                        // See react-native-worklets/android/build.gradle's identical
++                        // comment: this machine's CMake drops -lc++_shared from the
++                        // generated link line for this NDK, forced back explicitly.
++                        "-DCMAKE_SHARED_LINKER_FLAGS=-lc++_shared",
+                         "-DREACT_NATIVE_MINOR_VERSION=${REACT_NATIVE_MINOR_VERSION}",
+                         "-DANDROID_TOOLCHAIN=clang",
+                         "-DREACT_NATIVE_DIR=${toPlatformFileString(reactNativeRootDir.path)}",

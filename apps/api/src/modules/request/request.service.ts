@@ -8,6 +8,7 @@ import {
   RequestCompletedEvent,
   RequestCreatedEvent,
 } from "../../common/events/domain-events";
+import { ServiceAreaService } from "../service-area/service-area.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { assertValidTransition } from "./request-state-machine";
 
@@ -16,15 +17,23 @@ export class RequestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
+    private readonly serviceAreaService: ServiceAreaService,
   ) {}
 
   async create(customerProfileId: string, dto: CreateServiceRequestDto) {
     const vehicleSnapshot = await this.resolveVehicleSnapshot(dto.vehicleId);
+    // CLAUDE.md rule 8 / ADR 0006 — never trust a client-supplied
+    // serviceAreaId; derive it from where the request actually is. See
+    // ServiceAreaService.resolveForPoint()'s doc comment.
+    const serviceAreaId = await this.serviceAreaService.resolveForPoint(
+      dto.pickupLocation.latitude,
+      dto.pickupLocation.longitude,
+    );
 
     const created = await this.prisma.serviceRequest.create({
       data: {
         customerProfileId,
-        serviceAreaId: dto.serviceAreaId,
+        serviceAreaId,
         issueType: dto.issueType,
         vehicleId: dto.vehicleId,
         description: dto.description,
@@ -60,6 +69,26 @@ export class RequestService {
     const limit = Math.min(params.limit ?? 25, 100);
     const requests = await this.prisma.serviceRequest.findMany({
       where: { customerProfileId },
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: "desc" },
+    });
+
+    const hasMore = requests.length > limit;
+    const page = hasMore ? requests.slice(0, limit) : requests;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
+  /** Ch61/Ch137's admin manual-dispatch queue — requests automated matching
+   * either hasn't resolved yet (MATCHING) or gave up on (EXPIRED). Cursor-
+   * paginated, per docs/api-conventions.md. */
+  async listNeedingDispatch(params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const requests = await this.prisma.serviceRequest.findMany({
+      where: { status: { in: [PrismaRequestStatus.MATCHING, PrismaRequestStatus.EXPIRED] } },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
       orderBy: { createdAt: "desc" },

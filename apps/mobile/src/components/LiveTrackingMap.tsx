@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
-import { LocateFixed, MapPin, Navigation } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
+import { WebView, WebViewMessageEvent } from "react-native-webview";
+import { LocateFixed } from "lucide-react-native";
 import { COLORS, SHADOW } from "../theme/colors";
 
 export interface GeoPoint {
@@ -18,6 +18,11 @@ interface LiveTrackingMapProps {
   moving: GeoPoint | null;
   /** Label under the moving marker, e.g. a business name or "You". */
   movingLabel?: string;
+  /** The real road path between the moving point and pickup, from
+   * RoutingService (Ch32/ADR 0012). Null/undefined falls back to the
+   * straight dashed connector — a routing-provider outage or throttled fetch
+   * never breaks the map, it just loses the "real path" detail. */
+  routeGeometry?: GeoPoint[] | null;
   /** Extra bottom offset for the recenter button so it clears a floating
    * bottom card overlay, if the caller renders one. Defaults to 16. */
   bottomInset?: number;
@@ -26,85 +31,87 @@ interface LiveTrackingMapProps {
 /**
  * Ch54/Ch77's live-tracking map — previously TrackRequestScreen/ActiveJobScreen
  * just printed raw lat/lng numbers as text (flagged as the single biggest
- * mobile UX gap for a roadside-assistance app, see docs/roadmap.md). No real
- * route (Ch32's Maps/routing API integration is still future work, ADR
- * 0012) — the dashed line between pickup and the moving marker is an honest
- * straight-line connector, not a claimed route.
+ * mobile UX gap for a roadside-assistance app, see docs/roadmap.md). Draws a
+ * real road-path polyline when `routeGeometry` is available (Ch32/ADR 0012's
+ * previously-unbuilt routing feature); falls back to an honest straight
+ * dashed connector when it isn't (routing provider unavailable, or no fetch
+ * has completed yet) — never claims a route it doesn't actually have.
+ *
+ * Rendered via a WebView loading Leaflet + OpenStreetMap tiles rather than
+ * react-native-maps/Google Maps: Google Maps SDK for Android requires a
+ * billing-account-linked API key, which this project deliberately avoids
+ * needing just to show a tracking map. OSM tiles need no API key or billing
+ * account at all.
  */
-export function LiveTrackingMap({ pickup, moving, movingLabel, bottomInset = 16 }: LiveTrackingMapProps) {
-  const mapRef = useRef<MapView>(null);
+export function LiveTrackingMap({
+  pickup,
+  moving,
+  movingLabel,
+  routeGeometry,
+  bottomInset = 16,
+}: LiveTrackingMapProps) {
+  const webviewRef = useRef<WebView>(null);
+  const [ready, setReady] = useState(false);
+
+  // The map is centered/initialized on `pickup` once; it isn't expected to
+  // change during a single tracking session, so the HTML is only rebuilt
+  // (remounting the WebView) if it genuinely does.
+  const html = useMemo(() => buildTrackingMapHtml(pickup), [pickup.latitude, pickup.longitude]);
+
+  const pushMovingState = useCallback(() => {
+    if (!webviewRef.current || !ready) {
+      return;
+    }
+    if (moving) {
+      const label = movingLabel ? JSON.stringify(movingLabel) : "null";
+      webviewRef.current.injectJavaScript(
+        `window.setMoving(${moving.latitude}, ${moving.longitude}, ${label}); true;`,
+      );
+    } else {
+      webviewRef.current.injectJavaScript("window.clearMoving(); true;");
+    }
+  }, [moving?.latitude, moving?.longitude, movingLabel, ready]);
 
   useEffect(() => {
-    if (!mapRef.current) {
+    pushMovingState();
+  }, [pushMovingState]);
+
+  useEffect(() => {
+    if (!webviewRef.current || !ready) {
       return;
     }
-    if (moving) {
-      mapRef.current.fitToCoordinates([pickup, moving], {
-        edgePadding: { top: 160, right: 60, bottom: 220, left: 60 },
-        animated: true,
-      });
+    if (routeGeometry && routeGeometry.length >= 2) {
+      webviewRef.current.injectJavaScript(`window.setRoute(${JSON.stringify(routeGeometry)}); true;`);
     } else {
-      mapRef.current.animateToRegion(
-        { ...pickup, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-        400,
-      );
+      // Redraw the dashed fallback immediately rather than leaving no
+      // connector at all until the next location ping happens to arrive.
+      webviewRef.current.injectJavaScript("window.clearRoute(); true;");
+      pushMovingState();
     }
-  }, [pickup.latitude, pickup.longitude, moving?.latitude, moving?.longitude]);
+  }, [routeGeometry, ready, pushMovingState]);
+
+  function handleMessage(event: WebViewMessageEvent) {
+    if (event.nativeEvent.data === "ready") {
+      setReady(true);
+    }
+  }
 
   function recenter() {
-    if (!mapRef.current) {
-      return;
-    }
-    if (moving) {
-      mapRef.current.fitToCoordinates([pickup, moving], {
-        edgePadding: { top: 160, right: 60, bottom: 220, left: 60 },
-        animated: true,
-      });
-    } else {
-      mapRef.current.animateToRegion(
-        { ...pickup, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-        400,
-      );
-    }
+    webviewRef.current?.injectJavaScript("window.recenterMap(); true;");
   }
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <WebView
+        ref={webviewRef}
+        key={`${pickup.latitude}-${pickup.longitude}`}
+        source={{ html }}
         style={StyleSheet.absoluteFill}
-        initialRegion={{ ...pickup, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
-        showsCompass={false}
-        toolbarEnabled={false}
-        rotateEnabled={false}
-      >
-        <Marker coordinate={pickup} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-          <View style={styles.pickupPin}>
-            <MapPin size={18} color={COLORS.danger} fill={COLORS.danger} strokeWidth={1.5} />
-          </View>
-        </Marker>
-
-        {moving ? (
-          <>
-            <Polyline
-              coordinates={[pickup, moving]}
-              strokeColor={COLORS.primary}
-              strokeWidth={3}
-              lineDashPattern={[8, 8]}
-            />
-            <Marker coordinate={moving} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-              <View style={styles.movingPin}>
-                <Navigation size={18} color="#FFFFFF" fill="#FFFFFF" />
-              </View>
-              {movingLabel ? (
-                <View style={styles.movingLabelBadge}>
-                  <Text style={styles.movingLabelText}>{movingLabel}</Text>
-                </View>
-              ) : null}
-            </Marker>
-          </>
-        ) : null}
-      </MapView>
+        onMessage={handleMessage}
+        javaScriptEnabled
+        domStorageEnabled
+        originWhitelist={["*"]}
+      />
 
       <Pressable
         accessibilityRole="button"
@@ -118,40 +125,145 @@ export function LiveTrackingMap({ pickup, moving, movingLabel, bottomInset = 16 
   );
 }
 
+function buildTrackingMapHtml(pickup: GeoPoint): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; background: ${COLORS.bg}; }
+    .pickup-pin {
+      width: 36px; height: 36px; border-radius: 18px; background: ${COLORS.surface};
+      border: 2px solid ${COLORS.danger}; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 18px;
+    }
+    .moving-wrap { display: flex; flex-direction: column; align-items: center; }
+    .moving-pin {
+      width: 40px; height: 40px; border-radius: 20px; background: ${COLORS.primary};
+      border: 2px solid ${COLORS.surface}; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3); color: #FFFFFF; font-size: 18px;
+    }
+    .moving-label {
+      margin-top: 4px; background: ${COLORS.surface}; border-radius: 8px; padding: 2px 8px;
+      font-size: 11px; font-weight: 700; color: ${COLORS.textPrimary}; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var PICKUP_LAT = ${pickup.latitude};
+    var PICKUP_LNG = ${pickup.longitude};
+    var PRIMARY = ${JSON.stringify(COLORS.primary)};
+
+    var map = L.map('map', { zoomControl: false, attributionControl: false })
+      .setView([PICKUP_LAT, PICKUP_LNG], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c'],
+    }).addTo(map);
+
+    var pickupIcon = L.divIcon({
+      className: '', html: '<div class="pickup-pin">📍</div>', iconSize: [36, 36], iconAnchor: [18, 18],
+    });
+    L.marker([PICKUP_LAT, PICKUP_LNG], { icon: pickupIcon }).addTo(map);
+
+    var movingMarker = null;
+    var polyline = null; // straight-line fallback connector
+    var routeLine = null; // real road path, when RoutingService has one
+    var hasRealRoute = false;
+
+    function movingIcon(label) {
+      var labelHtml = label ? '<div class="moving-label">' + label + '</div>' : '';
+      var html = '<div class="moving-wrap"><div class="moving-pin">&#10148;</div>' + labelHtml + '</div>';
+      return L.divIcon({ className: '', html: html, iconSize: [80, 60], iconAnchor: [40, 20] });
+    }
+
+    function fitBothPoints(lat, lng) {
+      var bounds = L.latLngBounds([PICKUP_LAT, PICKUP_LNG], [lat, lng]);
+      map.fitBounds(bounds, { paddingTopLeft: [60, 160], paddingBottomRight: [60, 220] });
+    }
+
+    window.setMoving = function (lat, lng, label) {
+      if (!movingMarker) {
+        movingMarker = L.marker([lat, lng], { icon: movingIcon(label) }).addTo(map);
+      } else {
+        movingMarker.setLatLng([lat, lng]);
+        movingMarker.setIcon(movingIcon(label));
+      }
+      // The dashed straight-line connector is only the fallback — once a
+      // real route exists, it stays hidden rather than drawn underneath it.
+      if (!hasRealRoute) {
+        if (!polyline) {
+          polyline = L.polyline([[PICKUP_LAT, PICKUP_LNG], [lat, lng]], {
+            color: PRIMARY, weight: 3, dashArray: '8,8',
+          }).addTo(map);
+        } else {
+          polyline.setLatLngs([[PICKUP_LAT, PICKUP_LNG], [lat, lng]]);
+        }
+      }
+      fitBothPoints(lat, lng);
+    };
+
+    window.clearMoving = function () {
+      if (movingMarker) {
+        map.removeLayer(movingMarker);
+        movingMarker = null;
+      }
+      if (polyline) {
+        map.removeLayer(polyline);
+        polyline = null;
+      }
+      window.clearRoute();
+      map.setView([PICKUP_LAT, PICKUP_LNG], 15);
+    };
+
+    window.setRoute = function (points) {
+      hasRealRoute = true;
+      if (polyline) {
+        map.removeLayer(polyline);
+        polyline = null;
+      }
+      var coords = points.map(function (p) { return [p.latitude, p.longitude]; });
+      if (!routeLine) {
+        routeLine = L.polyline(coords, { color: PRIMARY, weight: 5 }).addTo(map);
+      } else {
+        routeLine.setLatLngs(coords);
+      }
+      map.fitBounds(routeLine.getBounds(), { paddingTopLeft: [60, 160], paddingBottomRight: [60, 220] });
+    };
+
+    window.clearRoute = function () {
+      hasRealRoute = false;
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+    };
+
+    window.recenterMap = function () {
+      if (movingMarker) {
+        var ll = movingMarker.getLatLng();
+        fitBothPoints(ll.lat, ll.lng);
+      } else {
+        map.setView([PICKUP_LAT, PICKUP_LNG], 15);
+      }
+    };
+
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage('ready');
+    }
+  </script>
+</body>
+</html>`;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  pickupPin: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: COLORS.danger,
-    ...SHADOW,
-  },
-  movingPin: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: COLORS.surface,
-    ...SHADOW,
-  },
-  movingLabelBadge: {
-    alignSelf: "center",
-    marginTop: 4,
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    ...SHADOW,
-  },
-  movingLabelText: { fontSize: 11, fontWeight: "700", color: COLORS.textPrimary },
   recenterButton: {
     position: "absolute",
     right: 16,

@@ -8,3 +8,4 @@ export { InitialsAvatar } from "./Avatar";
 export { LoadingScreen } from "./LoadingScreen";
 export { Chip } from "./Chip";
 export { EmptyState } from "./EmptyState";
+export { Toggle } from "./Toggle";

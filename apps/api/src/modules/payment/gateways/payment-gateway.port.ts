@@ -15,6 +15,14 @@ export interface PaymentGatewayPort {
   /** False when no API keys are configured — see RazorpayGatewayAdapter's constructor. */
   isConfigured(): boolean;
   createOrder(params: { amount: Money; currency: string; receipt: string }): Promise<CreateOrderResult>;
+  /** The gateway's public key/identifier a mobile client's checkout SDK needs
+   * to open a checkout session — safe to expose to a client, unlike the
+   * matching secret. Null when not configured. */
+  getPublicKeyId(): string | null;
+  /** Verifies a client checkout's own success-callback signature (distinct
+   * from the webhook's signature scheme) — see
+   * razorpay-signature.util.ts's verifyRazorpayPaymentSignature doc comment. */
+  verifyClientPaymentSignature(orderId: string, paymentId: string, signature: string): boolean;
 }
 
 export const PAYMENT_GATEWAY = Symbol("PAYMENT_GATEWAY");

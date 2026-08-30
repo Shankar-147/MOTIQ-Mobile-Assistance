@@ -3,19 +3,25 @@ import { Prisma } from "@prisma/client";
 import { ProviderVerificationStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { ProviderService } from "../provider/provider.service";
+import { RequestService } from "../request/request.service";
+import { MatchingService } from "../matching/matching.service";
 
 /**
- * Ch61's "provider-verification workflow backend" — the Admin-facing
- * orchestration layer. Provider owns the underlying entities
- * (ProviderVerificationDocument, ProviderProfile.verificationStatus) and the
- * guarded state machine (Ch98, ADR 0016); this service delegates the actual
- * mutation to ProviderService and adds what Admin owns: the audit trail.
+ * Ch61's "provider-verification workflow backend" and, as of this phase,
+ * its other named responsibility — manual dispatch override. Provider owns
+ * the underlying entities (ProviderVerificationDocument,
+ * ProviderProfile.verificationStatus) and the guarded state machine (Ch98,
+ * ADR 0016); Matching owns Assignment and the guarded dispatch decision
+ * (Ch53, ADR 0004). This service delegates the actual mutations to their
+ * owning services and adds what Admin owns: the audit trail.
  */
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly providerService: ProviderService,
+    private readonly requestService: RequestService,
+    private readonly matchingService: MatchingService,
   ) {}
 
   async recordAuditLog(params: {
@@ -99,6 +105,31 @@ export class AdminService {
       metadata: { from: before.verificationStatus, to: status },
     });
     return updated;
+  }
+
+  /** Ch61/Ch137's admin manual-dispatch queue. */
+  async listRequestsNeedingDispatch(params: { cursor?: string; limit?: number }) {
+    return this.requestService.listNeedingDispatch(params);
+  }
+
+  /** Ch61's admin manual dispatch override — see
+   * MatchingService.adminOverrideDispatch()'s doc comment for the guards
+   * (same-city, verification eligibility) it applies before this ever runs. */
+  async dispatchOverride(
+    serviceRequestId: string,
+    providerProfileId: string,
+    adminUserId: string,
+    reason?: string,
+  ) {
+    const assignment = await this.matchingService.adminOverrideDispatch(serviceRequestId, providerProfileId);
+    await this.recordAuditLog({
+      actorUserId: adminUserId,
+      action: "REQUEST_DISPATCH_OVERRIDDEN",
+      entityType: "ServiceRequest",
+      entityId: serviceRequestId,
+      metadata: { providerProfileId, assignmentId: assignment.id, reason },
+    });
+    return assignment;
   }
 
   /** Manual stand-in for Ch62's future recurring scheduler — see

@@ -1,4 +1,4 @@
-import { IssueType, UserRole } from "./enums";
+import { IssueType, MaintenanceDueStatus, MaintenanceServiceType, UserRole, VehicleType } from "./enums";
 
 /** Shared wire-format shapes. Validation lives server-side (class-validator, apps/api) —
  * these types describe the contract, they don't enforce it. See docs/api-conventions.md. */
@@ -9,11 +9,87 @@ export interface GeoPoint {
 }
 
 export interface CreateServiceRequestDto {
-  serviceAreaId: string;
+  // serviceAreaId is deliberately NOT a field here — it's derived server-side
+  // from pickupLocation (ServiceAreaService.resolveForPoint), never trusted
+  // from the client. See CLAUDE.md rule 8 / ADR 0006.
   issueType: IssueType;
   pickupLocation: GeoPoint;
   description?: string;
   vehicleId?: string;
+}
+
+export interface CreateVehicleDto {
+  vehicleType: VehicleType;
+  make: string;
+  model: string;
+  year?: number;
+  plateNumber: string;
+}
+
+export interface UpdateVehicleDto extends Partial<CreateVehicleDto> {}
+
+export interface VehicleDto extends CreateVehicleDto {
+  id: string;
+  customerProfileId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProviderFleetVehicleDto {
+  vehicleType: VehicleType;
+  make: string;
+  model: string;
+  plateNumber: string;
+}
+
+export interface UpdateProviderFleetVehicleDto extends Partial<CreateProviderFleetVehicleDto> {}
+
+export interface ProviderFleetVehicleDto extends CreateProviderFleetVehicleDto {
+  id: string;
+  providerProfileId: string;
+  createdAt: string;
+}
+
+export interface CreateMaintenanceRecordDto {
+  serviceType: MaintenanceServiceType;
+  odometerKm: number;
+  cost?: string;
+  notes?: string;
+}
+
+export interface VehicleMaintenanceRecordDto extends CreateMaintenanceRecordDto {
+  id: string;
+  vehicleId: string;
+  servicedAt: string;
+  createdAt: string;
+}
+
+/** One row per MaintenanceServiceType a vehicle's type has a rule for —
+ * see VehicleService.getMaintenanceDueStatus() / maintenance-due.util.ts. */
+export interface MaintenanceDueStatusDto {
+  serviceType: MaintenanceServiceType;
+  status: MaintenanceDueStatus;
+  lastServicedAt: string | null;
+  lastOdometerKm: number | null;
+  intervalKm: number | null;
+  intervalMonths: number | null;
+  kmSinceService: number | null;
+  monthsSinceService: number | null;
+}
+
+export interface VehicleReminderPreferenceDto {
+  serviceType: MaintenanceServiceType;
+  enabled: boolean;
+}
+
+export interface VehicleReminderSettingsDto {
+  preferences: VehicleReminderPreferenceDto[];
+  leadTimeDays: number;
+}
+
+export interface UpdateVehicleReminderSettingsDto {
+  preferences: VehicleReminderPreferenceDto[];
+  leadTimeDays: number;
 }
 
 export interface PaginatedResult<T> {

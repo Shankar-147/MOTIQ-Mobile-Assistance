@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
+import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Car, Navigation, Receipt, Star } from "lucide-react-native";
+import { Car, CreditCard, Navigation, Receipt, Star } from "lucide-react-native";
 import { IssueType, RequestStatus } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
@@ -28,6 +29,8 @@ interface PaymentDetail {
   commissionAmount: string;
   providerPayoutAmount: string;
   status: string;
+  gatewayReference: string | null;
+  razorpayKeyId: string | null;
 }
 
 const LIVE_STATUSES = new Set<RequestStatus>([
@@ -47,16 +50,18 @@ export function RequestDetailScreen({ route, navigation }: Props) {
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [payment, setPayment] = useState<PaymentDetail | null>(null);
 
-  useEffect(() => {
-    requestApi
-      .getById(serviceRequestId)
-      .then((response) => setRequest(response.data as RequestDetail))
-      .catch(() => undefined);
-    requestApi
-      .getPayment(serviceRequestId)
-      .then((response) => setPayment(response.data as PaymentDetail | null))
-      .catch(() => undefined);
-  }, [serviceRequestId]);
+  useFocusEffect(
+    useCallback(() => {
+      requestApi
+        .getById(serviceRequestId)
+        .then((response) => setRequest(response.data as RequestDetail))
+        .catch(() => undefined);
+      requestApi
+        .getPayment(serviceRequestId)
+        .then((response) => setPayment(response.data as PaymentDetail | null))
+        .catch(() => undefined);
+    }, [serviceRequestId]),
+  );
 
   if (!request) {
     return <LoadingScreen />;
@@ -110,6 +115,14 @@ export function RequestDetailScreen({ route, navigation }: Props) {
               Payment status: {payment.status}
             </Text>
           </Card>
+        ) : null}
+
+        {payment?.status === "AUTHORIZED" ? (
+          <Button
+            label="Pay now"
+            icon={CreditCard}
+            onPress={() => navigation.navigate("MakePayment", { serviceRequestId })}
+          />
         ) : null}
 
         {LIVE_STATUSES.has(request.status) ? (

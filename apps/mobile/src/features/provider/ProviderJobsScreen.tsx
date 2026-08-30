@@ -4,7 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Briefcase } from "lucide-react-native";
 import { AssignmentStatus, IssueType, RequestStatus } from "@motiq/types";
 import { providerApi } from "../../api/providerApi";
-import { Badge, BadgeTone, EmptyState } from "../../components/ui";
+import { Badge, EmptyState } from "../../components/ui";
+import { ASSIGNMENT_STATUS_TONE } from "./assignmentBadgeTone";
 
 interface JobRow {
   id: string;
@@ -13,13 +14,6 @@ interface JobRow {
   distanceMeters: number | null;
   serviceRequest: { id: string; issueType: IssueType; status: RequestStatus; createdAt: string };
 }
-
-const STATUS_TONE: Record<AssignmentStatus, BadgeTone> = {
-  [AssignmentStatus.OFFERED]: "warning",
-  [AssignmentStatus.ACCEPTED]: "success",
-  [AssignmentStatus.REJECTED]: "neutral",
-  [AssignmentStatus.TIMED_OUT]: "neutral",
-};
 
 /** Ch72's mobile job-history screen — every Assignment this provider was
  * ever offered, read-only (no resume-into-ActiveJob action here; the
@@ -84,7 +78,7 @@ export function ProviderJobsScreen() {
               <Text fontWeight="$semibold" size="md" textTransform="capitalize">
                 {job.serviceRequest.issueType.replace("_", " ")}
               </Text>
-              <Badge label={job.status} tone={STATUS_TONE[job.status]} />
+              <Badge label={job.status} tone={ASSIGNMENT_STATUS_TONE[job.status]} />
             </HStack>
             <Text size="sm" color="$textLight500" mt="$1">
               {new Date(job.offeredAt).toLocaleString()}

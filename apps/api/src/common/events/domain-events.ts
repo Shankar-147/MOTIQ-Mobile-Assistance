@@ -12,6 +12,7 @@ export const DomainEvents = {
   RequestCompleted: "request.completed",
   ProviderAssigned: "provider.assigned",
   ProviderTimedOut: "provider.timed-out",
+  MatchingFailed: "matching.failed",
   PaymentSettled: "payment.settled",
   RatingSubmitted: "rating.submitted",
 } as const;
@@ -34,6 +35,14 @@ export interface ProviderTimedOutEvent {
   serviceRequestId: string;
   assignmentId: string;
   providerProfileId: string;
+}
+
+/** Emitted when dispatch() finds zero available candidates and the request
+ * expires (Ch7 §7.5.3's "no provider available" outcome) — TrackingGateway
+ * forwards this to the customer's Socket.IO room so the mobile Matching
+ * screen can show "no provider found" instead of waiting forever. */
+export interface MatchingFailedEvent {
+  serviceRequestId: string;
 }
 
 export interface PaymentSettledEvent {

@@ -82,4 +82,15 @@ export class ProviderController {
   listOwnVerificationDocuments(@CurrentUser() user: AuthenticatedUser) {
     return this.providerService.listOwnVerificationDocuments(user.profileId);
   }
+
+  // The trust-score ML training-data export — see
+  // ProviderService.listTrustSnapshots()'s doc comment.
+  @Get("training-data/trust-snapshots")
+  @Roles(UserRole.ADMIN)
+  listTrustSnapshots(@Query("cursor") cursor?: string, @Query("limit") limit?: string) {
+    return this.providerService.listTrustSnapshots({
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
 }

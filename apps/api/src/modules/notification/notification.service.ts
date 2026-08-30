@@ -132,12 +132,13 @@ export class NotificationService {
     channel: NotificationChannel;
     title: string;
     body: string;
+    payload?: Record<string, unknown>;
   }): Promise<boolean> {
     if (params.channel === NotificationChannel.SMS) {
       return this.dispatchSms(params.userId, params.body);
     }
     if (params.channel === NotificationChannel.PUSH) {
-      return this.dispatchPush(params.userId, params.title, params.body);
+      return this.dispatchPush(params.userId, params.title, params.body, params.payload);
     }
     // EMAIL has no adapter in this bootstrap phase — log-only, same as an
     // unconfigured SMS/push gateway.
@@ -163,7 +164,12 @@ export class NotificationService {
     }
   }
 
-  private async dispatchPush(userId: string, title: string, body: string): Promise<boolean> {
+  private async dispatchPush(
+    userId: string,
+    title: string,
+    body: string,
+    payload?: Record<string, unknown>,
+  ): Promise<boolean> {
     const tokens = await this.prisma.pushDeviceToken.findMany({ where: { userId } });
     if (tokens.length === 0) {
       this.logger.log(`[PUSH, no registered device] -> user ${userId}: ${title}`);
@@ -173,10 +179,19 @@ export class NotificationService {
       this.logger.log(`[PUSH, no provider wired] -> user ${userId} (${tokens.length} device(s)): ${title}`);
       return true;
     }
+    // FCM's data payload only accepts string values — this was previously
+    // dropped entirely (never passed to sendPush at all), which meant every
+    // push arrived with an empty data payload: a tapped "job offer"
+    // notification had no assignmentId/serviceRequestId to deep-link with
+    // (see pushRegistration.ts's addNotificationTapListener), so tapping it
+    // just dismissed the notification and did nothing.
+    const data = payload
+      ? Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, String(value)]))
+      : undefined;
     let anySucceeded = false;
     for (const deviceToken of tokens) {
       try {
-        await this.pushGateway.sendPush({ token: deviceToken.token, title, body });
+        await this.pushGateway.sendPush({ token: deviceToken.token, title, body, data });
         anySucceeded = true;
       } catch (error) {
         this.logger.error(`Push send to device ${deviceToken.id} failed: ${(error as Error).message}`);

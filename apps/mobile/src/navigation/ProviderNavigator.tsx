@@ -5,6 +5,9 @@ import { ProviderTabNavigator } from "./ProviderTabNavigator";
 import { JobOfferScreen } from "../features/provider/JobOfferScreen";
 import { ActiveJobScreen } from "../features/provider/ActiveJobScreen";
 import { KycUploadScreen } from "../features/provider/KycUploadScreen";
+import { AddEditFleetVehicleScreen } from "../features/provider/AddEditFleetVehicleScreen";
+import { EarningsScreen } from "../features/provider/EarningsScreen";
+import { MyRatingsScreen } from "../features/provider/MyRatingsScreen";
 
 const Stack = createNativeStackNavigator<ProviderStackParamList>();
 
@@ -25,6 +28,15 @@ export function ProviderNavigator() {
         component={KycUploadScreen}
         options={{ title: "Verification documents" }}
       />
+      <Stack.Screen
+        name="AddFleetVehicle"
+        component={AddEditFleetVehicleScreen}
+        options={({ route }) => ({
+          title: route.params?.vehicleId ? "Edit fleet vehicle" : "Add fleet vehicle",
+        })}
+      />
+      <Stack.Screen name="Earnings" component={EarningsScreen} options={{ title: "Earnings" }} />
+      <Stack.Screen name="MyRatings" component={MyRatingsScreen} options={{ title: "My ratings" }} />
     </Stack.Navigator>
   );
 }

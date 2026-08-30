@@ -1,0 +1,1340 @@
+{
+  "info": {
+    "_postman_id": "8f2b1c3e-motiq-api-collection-0001",
+    "name": "MOTIQ API - Full Flow",
+    "description": "End-to-end verification collection for the MOTIQ roadside-assistance API (apps/api). Global prefix /api/v1. Run folders top to bottom: Health -> Auth -> Consent -> Customer Profile -> Provider Onboarding -> Admin Console -> Service Areas & Pricing -> Service Request Lifecycle -> Matching -> Payment -> Ratings -> SOS -> Notifications -> AI Assistant -> Data Rights -> Vehicles & Maintenance -> Provider Fleet Vehicles -> Live Tracking.\n\nNotes:\n- OTP codes are not returned by the API. In local dev, OTP delivery falls back to a server log (no Twilio configured) - check the apps/api console output and paste the code into the `otpCode` variable before running the verify request.\n- There is no REST endpoint to list a provider's pending assignment offers. After creating a service request, inspect the DB (or dev logs / WebSocket tracking channel) for the generated assignment id and set the `assignmentId` variable manually before running the Matching folder.\n- Admin/Support accounts are seeded out-of-band (not self-registered) - set `adminIdentifier` / `adminPassword` to a seeded admin account before running the Admin Login request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "type": "text/javascript", "exec": [""] }
+    },
+    {
+      "listen": "test",
+      "script": { "type": "text/javascript", "exec": [""] }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api/v1", "type": "string" },
+    { "key": "customerPhone", "value": "+919800000001", "type": "string" },
+    { "key": "providerPhone", "value": "+919800000002", "type": "string" },
+    { "key": "otpCode", "value": "123456", "type": "string" },
+    { "key": "customerAccessToken", "value": "", "type": "string" },
+    { "key": "customerRefreshToken", "value": "", "type": "string" },
+    { "key": "providerAccessToken", "value": "", "type": "string" },
+    { "key": "providerRefreshToken", "value": "", "type": "string" },
+    { "key": "adminIdentifier", "value": "admin@motiq.in", "type": "string" },
+    { "key": "adminPassword", "value": "ChangeMe123!", "type": "string" },
+    { "key": "adminAccessToken", "value": "", "type": "string" },
+    { "key": "adminRefreshToken", "value": "", "type": "string" },
+    { "key": "serviceAreaId", "value": "", "type": "string" },
+    { "key": "requestId", "value": "", "type": "string" },
+    { "key": "assignmentId", "value": "", "type": "string" },
+    { "key": "verificationDocumentId", "value": "", "type": "string" },
+    { "key": "sosAlertId", "value": "", "type": "string" },
+    { "key": "aiConversationId", "value": "", "type": "string" },
+    { "key": "vehicleId", "value": "", "type": "string" },
+    { "key": "fleetVehicleId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "00 - Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Request OTP - Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{customerPhone}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/otp/request", "host": ["{{baseUrl}}"], "path": ["auth", "otp", "request"] },
+            "description": "204 No Content on success. Check server logs for the OTP code (SMS falls back to logging when Twilio isn't configured). Throttled 5/min per IP."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP - Customer (login/register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('customerAccessToken', json.accessToken);",
+                  "  pm.collectionVariables.set('customerRefreshToken', json.refreshToken);",
+                  "  pm.test('received token pair', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{customerPhone}}\",\n  \"code\": \"{{otpCode}}\",\n  \"role\": \"CUSTOMER\",\n  \"displayName\": \"Test Customer\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/otp/verify", "host": ["{{baseUrl}}"], "path": ["auth", "otp", "verify"] },
+            "description": "First call for a new phone registers a CUSTOMER (displayName required); subsequent calls log in the same account. Extra fields beyond the DTO are rejected (whitelist validation), but role/displayName are valid DTO fields so this body works for both first-time and repeat calls."
+          },
+          "response": []
+        },
+        {
+          "name": "Request OTP - Provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{providerPhone}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/otp/request", "host": ["{{baseUrl}}"], "path": ["auth", "otp", "request"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP - Provider (register, needs serviceAreaId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('providerAccessToken', json.accessToken);",
+                  "  pm.collectionVariables.set('providerRefreshToken', json.refreshToken);",
+                  "  pm.test('received token pair', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{providerPhone}}\",\n  \"code\": \"{{otpCode}}\",\n  \"role\": \"PROVIDER\",\n  \"businessName\": \"Test Roadside Services\",\n  \"serviceAreaId\": \"{{serviceAreaId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/otp/verify", "host": ["{{baseUrl}}"], "path": ["auth", "otp", "verify"] },
+            "description": "Run '06 - Service Areas & Pricing / Create Service Area' first so {{serviceAreaId}} is populated, since PROVIDER registration requires it."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('adminAccessToken', json.accessToken);",
+                  "  pm.collectionVariables.set('adminRefreshToken', json.refreshToken);",
+                  "  pm.test('received token pair', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{adminIdentifier}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/admin/login", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "login"] },
+            "description": "Add \"totpCode\" to the body if the account has MFA enrolled. Admin/Support accounts are seeded out-of-band."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('customerAccessToken', json.accessToken);",
+                  "  pm.collectionVariables.set('customerRefreshToken', json.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] },
+            "description": "Refresh tokens are single-use/rotated - the response replaces both stored tokens."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin MFA - Get Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/admin/mfa", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "mfa"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin MFA - Enroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/admin/mfa/enroll", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "mfa", "enroll"] },
+            "description": "Returns { secret, otpauthUri } - load into an authenticator app, then confirm with the 6-digit code below."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin MFA - Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"000000\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/admin/mfa/confirm", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "mfa", "confirm"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin MFA - Disable",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/admin/mfa", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "mfa"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Consent",
+      "item": [
+        {
+          "name": "Get My Consents - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/consent", "host": ["{{baseUrl}}"], "path": ["consent"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Grant Location Consent - Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/consent/location-tracking", "host": ["{{baseUrl}}"], "path": ["consent", "location-tracking"] },
+            "description": "Required before POST /requests will succeed for this user."
+          },
+          "response": []
+        },
+        {
+          "name": "Grant Location Consent - Provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/consent/location-tracking", "host": ["{{baseUrl}}"], "path": ["consent", "location-tracking"] },
+            "description": "Required before PATCH /providers/me/presence with a location payload will succeed."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Location Consent - Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/consent/location-tracking", "host": ["{{baseUrl}}"], "path": ["consent", "location-tracking"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Customer Profile",
+      "item": [
+        {
+          "name": "Get My Profile - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/customers/me", "host": ["{{baseUrl}}"], "path": ["customers", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile - Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Test Customer Updated\",\n  \"preferredLanguage\": \"en\",\n  \"defaultServiceAreaId\": \"{{serviceAreaId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/customers/me", "host": ["{{baseUrl}}"], "path": ["customers", "me"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Provider Onboarding",
+      "item": [
+        {
+          "name": "Get My Provider Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/providers/me", "host": ["{{baseUrl}}"], "path": ["providers", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Job History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/providers/me/jobs?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "me", "jobs"],
+              "query": [{ "key": "limit", "value": "20" }, { "key": "cursor", "value": "", "disabled": true }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Verification Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('verificationDocumentId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DRIVING_LICENSE\",\n  \"fileUrl\": \"https://example.com/uploads/driving-license.jpg\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/providers/me/verification-documents", "host": ["{{baseUrl}}"], "path": ["providers", "me", "verification-documents"] },
+            "description": "documentType: DRIVING_LICENSE | VEHICLE_REGISTRATION | IDENTITY_PROOF | ADDRESS_PROOF | OTHER"
+          },
+          "response": []
+        },
+        {
+          "name": "List My Verification Documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/providers/me/verification-documents", "host": ["{{baseUrl}}"], "path": ["providers", "me", "verification-documents"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Presence - Go ONLINE (with location)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"presenceStatus\": \"ONLINE\",\n  \"location\": {\n    \"latitude\": 12.9716,\n    \"longitude\": 77.5946\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/providers/me/presence", "host": ["{{baseUrl}}"], "path": ["providers", "me", "presence"] },
+            "description": "Requires the LOCATION_TRACKING consent grant to have succeeded first."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Presence - Go OFFLINE",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"presenceStatus\": \"OFFLINE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/providers/me/presence", "host": ["{{baseUrl}}"], "path": ["providers", "me", "presence"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Public Provider Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/providers/:id/public", "host": ["{{baseUrl}}"], "path": ["providers", ":id", "public"], "variable": [{ "key": "id", "value": "" }] },
+            "description": "Set the path variable 'id' to the assigned provider's profile id (visible on the request/assignment once matched)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Admin Console",
+      "item": [
+        {
+          "name": "List Pending Verification Documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/providers/verification-documents", "host": ["{{baseUrl}}"], "path": ["admin", "providers", "verification-documents"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Review Verification Document",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"notes\": \"Document verified during API test flow\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/providers/verification-documents/{{verificationDocumentId}}/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "providers", "verification-documents", "{{verificationDocumentId}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Providers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/providers?serviceAreaId={{serviceAreaId}}&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "providers"],
+              "query": [
+                { "key": "serviceAreaId", "value": "{{serviceAreaId}}" },
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Provider Verification Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PROVISIONAL\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/providers/:id/verification-status", "host": ["{{baseUrl}}"], "path": ["admin", "providers", ":id", "verification-status"], "variable": [{ "key": "id", "value": "" }] },
+            "description": "status: UNVERIFIED | PROVISIONAL | FULLY_VERIFIED | SUSPENDED | DELISTED. ADMIN role only. Set the 'id' path variable to the provider's profile id."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger Verification Sweep",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/providers/verification-sweep", "host": ["{{baseUrl}}"], "path": ["admin", "providers", "verification-sweep"] },
+            "description": "Manual stand-in for the scheduled provisional-tier expiry sweep. ADMIN only."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit-log?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit-log"],
+              "query": [{ "key": "limit", "value": "20" }, { "key": "cursor", "value": "", "disabled": true }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Requests Needing Dispatch",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/needing-dispatch?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "requests", "needing-dispatch"],
+              "query": [{ "key": "limit", "value": "20" }, { "key": "cursor", "value": "", "disabled": true }]
+            },
+            "description": "Ch61/Ch137's manual-dispatch queue - requests automated matching either hasn't resolved yet or gave up on. ADMIN | SUPPORT."
+          },
+          "response": []
+        },
+        {
+          "name": "Dispatch Override (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerProfileId\": \"\",\n  \"reason\": \"Manually dispatched during API test flow\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/requests/{{requestId}}/dispatch-override", "host": ["{{baseUrl}}"], "path": ["admin", "requests", "{{requestId}}", "dispatch-override"] },
+            "description": "ADMIN only - a higher-stakes action, moves real ops flow (see MatchingService.adminOverrideDispatch()). Set providerProfileId to a verified provider's profile id in the same service area as the request."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Service Areas & Pricing",
+      "item": [
+        {
+          "name": "List Service Areas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/service-areas", "host": ["{{baseUrl}}"], "path": ["service-areas"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service Area (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('serviceAreaId', json.id);",
+                  "  pm.test('serviceAreaId captured', () => pm.expect(json.id).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bengaluru Test Area\",\n  \"launchPhase\": \"CONTROLLED_DEMAND\",\n  \"boundary\": [\n    { \"latitude\": 12.90, \"longitude\": 77.50 },\n    { \"latitude\": 12.90, \"longitude\": 77.70 },\n    { \"latitude\": 13.05, \"longitude\": 77.70 },\n    { \"latitude\": 13.05, \"longitude\": 77.50 }\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/service-areas", "host": ["{{baseUrl}}"], "path": ["service-areas"] },
+            "description": "Run this first (or 'List Service Areas' and copy an id manually) so {{serviceAreaId}} is set before Provider registration / request creation."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Area By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/service-areas/{{serviceAreaId}}", "host": ["{{baseUrl}}"], "path": ["service-areas", "{{serviceAreaId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Launch Phase (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"launchPhase\": \"LIQUIDITY_GROWTH\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/service-areas/{{serviceAreaId}}/launch-phase", "host": ["{{baseUrl}}"], "path": ["service-areas", "{{serviceAreaId}}", "launch-phase"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Commission Rate (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceAreaId\": \"{{serviceAreaId}}\",\n  \"ratePercentage\": 15,\n  \"effectiveFrom\": \"2026-01-01T00:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/commission-rates", "host": ["{{baseUrl}}"], "path": ["commission-rates"] },
+            "description": "Must exist for the service area before a request in that area can settle payment - do this before running the Request Lifecycle folder."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Commission Rate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/service-areas/{{serviceAreaId}}/commission-rate", "host": ["{{baseUrl}}"], "path": ["service-areas", "{{serviceAreaId}}", "commission-rate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Fare Config (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceAreaId\": \"{{serviceAreaId}}\",\n  \"baseFare\": 100,\n  \"perKmRate\": 15,\n  \"maxSurgeMultiplier\": 2,\n  \"effectiveFrom\": \"2026-01-01T00:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/fare-configs", "host": ["{{baseUrl}}"], "path": ["fare-configs"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Fare Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/service-areas/{{serviceAreaId}}/fare-config", "host": ["{{baseUrl}}"], "path": ["service-areas", "{{serviceAreaId}}", "fare-config"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Service Request Lifecycle",
+      "item": [
+        {
+          "name": "Create Service Request - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('requestId', json.id);",
+                  "  pm.test('requestId captured', () => pm.expect(json.id).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceAreaId\": \"{{serviceAreaId}}\",\n  \"issueType\": \"FLAT_TYRE\",\n  \"pickupLocation\": {\n    \"latitude\": 12.9720,\n    \"longitude\": 77.5950\n  },\n  \"description\": \"Front-left tyre punctured on the highway shoulder.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/requests", "host": ["{{baseUrl}}"], "path": ["requests"] },
+            "description": "issueType: TOW | REPAIR | FUEL | FLAT_TYRE | BATTERY_JUMP | OTHER. Requires LOCATION_TRACKING consent. Emits RequestCreated -> matching auto-dispatches REQUESTED -> MATCHING -> ASSIGNED. After this call, find the generated assignment id (DB/dev logs/WebSocket) and set {{assignmentId}} before running folder 08."
+          },
+          "response": []
+        },
+        {
+          "name": "List My Requests - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/requests?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["requests"],
+              "query": [{ "key": "limit", "value": "20" }, { "key": "cursor", "value": "", "disabled": true }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Request By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/requests/{{requestId}}", "host": ["{{baseUrl}}"], "path": ["requests", "{{requestId}}"] },
+            "description": "Also reachable by PROVIDER/ADMIN/SUPPORT tokens (customers can only view their own)."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Request - Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/requests/{{requestId}}/cancel", "host": ["{{baseUrl}}"], "path": ["requests", "{{requestId}}", "cancel"] },
+            "description": "Only run this if you want to test the cancellation off-ramp instead of the full completion flow below - it transitions the request to CANCELLED_BY_CUSTOMER (terminal)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 - Matching & Assignment",
+      "item": [
+        {
+          "name": "Accept Assignment - Provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/accept", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "accept"] },
+            "description": "Set {{assignmentId}} manually first - there is no REST endpoint to list a provider's pending offers; offers arrive via the WebSocket tracking channel / notifications in the real app. Transitions offer to ACCEPTED and request to PROVIDER_ACCEPTED."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Assignment - Provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/reject", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "reject"] },
+            "description": "Use only as an alternative to Accept, not both - this sends the request back to MATCHING."
+          },
+          "response": []
+        },
+        {
+          "name": "Job Status - PROVIDER_EN_ROUTE",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"PROVIDER_EN_ROUTE\"\n}" },
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/job-status", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "job-status"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Job Status - ARRIVED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ARRIVED\"\n}" },
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/job-status", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "job-status"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Job Status - SERVICE_IN_PROGRESS",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"SERVICE_IN_PROGRESS\"\n}" },
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/job-status", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "job-status"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Job Status - COMPLETED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\"\n}" },
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/job-status", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "job-status"] },
+            "description": "Emits RequestCompleted -> PaymentService auto-settles a Payment record for this request. Check folder 09 next."
+          },
+          "response": []
+        },
+        {
+          "name": "Job Status - CANCELLED_BY_PROVIDER",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"CANCELLED_BY_PROVIDER\"\n}" },
+            "url": { "raw": "{{baseUrl}}/assignments/{{assignmentId}}/job-status", "host": ["{{baseUrl}}"], "path": ["assignments", "{{assignmentId}}", "job-status"] },
+            "description": "Alternative terminal off-ramp - use instead of, not in addition to, the COMPLETED call."
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep Expired Offers (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/matching/sweep-expired", "host": ["{{baseUrl}}"], "path": ["matching", "sweep-expired"] },
+            "description": "Manual stand-in for the scheduled offer-expiry sweep."
+          },
+          "response": []
+        },
+        {
+          "name": "List Training Data Assignments (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/matching/training-data/assignments?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["matching", "training-data", "assignments"],
+              "query": [{ "key": "limit", "value": "20" }, { "key": "cursor", "value": "", "disabled": true }]
+            },
+            "description": "The matching-ranking ML training-data export. ADMIN only."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 - Payment",
+      "item": [
+        {
+          "name": "Get Payment For Request",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/requests/{{requestId}}/payment", "host": ["{{baseUrl}}"], "path": ["requests", "{{requestId}}", "payment"] },
+            "description": "Returns null until the request reaches COMPLETED and PaymentService auto-settles it. Also reachable by PROVIDER/ADMIN/SUPPORT tokens."
+          },
+          "response": []
+        },
+        {
+          "name": "Razorpay Webhook (signature-authenticated)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-razorpay-signature", "value": "REPLACE_WITH_COMPUTED_HMAC_SIGNATURE" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"pay_test_placeholder\",\n        \"order_id\": \"order_test_placeholder\",\n        \"status\": \"captured\"\n      }\n    }\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments/webhooks/razorpay", "host": ["{{baseUrl}}"], "path": ["payments", "webhooks", "razorpay"] },
+            "description": "Not part of the client flow - included for completeness. The endpoint verifies the raw body against x-razorpay-signature computed with your Razorpay webhook secret; a real signature must be computed outside Postman (or via a pre-request script using the crypto-js library) for this to return 2xx."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 - Ratings",
+      "item": [
+        {
+          "name": "Rate Completed Request - Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stars\": 5,\n  \"comment\": \"Quick and professional service.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/requests/{{requestId}}/ratings", "host": ["{{baseUrl}}"], "path": ["requests", "{{requestId}}", "ratings"] },
+            "description": "stars: integer 1-5. Run after the request reaches COMPLETED."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 - SOS",
+      "item": [
+        {
+          "name": "Trigger SOS - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('sosAlertId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946,\n  \"serviceRequestId\": \"{{requestId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sos/trigger", "host": ["{{baseUrl}}"], "path": ["sos", "trigger"] },
+            "description": "Exempt from throttling and consent gating by design (safety-critical path). serviceRequestId is optional."
+          },
+          "response": []
+        },
+        {
+          "name": "List SOS Alerts (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/sos/alerts", "host": ["{{baseUrl}}"], "path": ["sos", "alerts"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Acknowledge SOS Alert (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/sos/alerts/{{sosAlertId}}/acknowledge", "host": ["{{baseUrl}}"], "path": ["sos", "alerts", "{{sosAlertId}}", "acknowledge"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve SOS Alert (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"RESOLVED\",\n  \"notes\": \"Confirmed customer safe via callback.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sos/alerts/{{sosAlertId}}/resolve", "host": ["{{baseUrl}}"], "path": ["sos", "alerts", "{{sosAlertId}}", "resolve"] },
+            "description": "outcome: RESOLVED | FALSE_ALARM"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 - Notifications",
+      "item": [
+        {
+          "name": "Register Device Token - Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"test-fcm-device-token-placeholder\",\n  \"platform\": \"ANDROID\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/notifications/device-tokens", "host": ["{{baseUrl}}"], "path": ["notifications", "device-tokens"] },
+            "description": "platform: IOS | ANDROID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notification Preferences - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/notifications/preferences", "host": ["{{baseUrl}}"], "path": ["notifications", "preferences"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Notification Preferences - Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"smsEnabled\": true,\n  \"pushEnabled\": true,\n  \"emailEnabled\": false,\n  \"quietHoursStartHour\": 22,\n  \"quietHoursEndHour\": 7\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/notifications/preferences", "host": ["{{baseUrl}}"], "path": ["notifications", "preferences"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13 - AI Assistant",
+      "item": [
+        {
+          "name": "Classify Issue - Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"My car won't start, battery seems dead after leaving the lights on overnight.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/ai/classify-issue", "host": ["{{baseUrl}}"], "path": ["ai", "classify-issue"] },
+            "description": "Suggestion only - does not set the request's issueType (AI is additive, never load-bearing per ADR 0007)."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Assistant Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('aiConversationId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/ai/assistant/conversations", "host": ["{{baseUrl}}"], "path": ["ai", "assistant", "conversations"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Assistant Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"How long until a provider gets to me?\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/ai/assistant/conversations/{{aiConversationId}}/messages", "host": ["{{baseUrl}}"], "path": ["ai", "assistant", "conversations", "{{aiConversationId}}", "messages"] },
+            "description": "Throttled 20/min."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14 - Data Rights",
+      "item": [
+        {
+          "name": "Export My Data - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me/data-export", "host": ["{{baseUrl}}"], "path": ["users", "me", "data-export"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Erase My Account - Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] },
+            "description": "Destructive - only run this at the very end of a test pass, it erases the test customer account."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15 - Vehicles & Maintenance",
+      "item": [
+        {
+          "name": "Add Vehicle - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('vehicleId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"CAR\",\n  \"make\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"year\": 2021,\n  \"plateNumber\": \"KA01AB1234\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/vehicles", "host": ["{{baseUrl}}"], "path": ["vehicles"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List My Vehicles - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/vehicles", "host": ["{{baseUrl}}"], "path": ["vehicles"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Vehicle - Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"year\": 2022\n}" },
+            "url": { "raw": "{{baseUrl}}/vehicles/{{vehicleId}}", "host": ["{{baseUrl}}"], "path": ["vehicles", "{{vehicleId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Maintenance Record - Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceType\": \"OIL_CHANGE\",\n  \"odometerKm\": 18500,\n  \"cost\": \"1200.00\",\n  \"notes\": \"Full synthetic oil change during API test flow\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/maintenance-records", "host": ["{{baseUrl}}"], "path": ["vehicles", "{{vehicleId}}", "maintenance-records"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Maintenance Records - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/maintenance-records", "host": ["{{baseUrl}}"], "path": ["vehicles", "{{vehicleId}}", "maintenance-records"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Maintenance Due Status - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/maintenance-due", "host": ["{{baseUrl}}"], "path": ["vehicles", "{{vehicleId}}", "maintenance-due"] },
+            "description": "Computed-on-read per MaintenanceServiceType against MaintenanceIntervalRule - not persisted (see VehicleMaintenanceReminderLog for the separate reminder-dedup record)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Reminder Preferences - Customer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/vehicles/reminder-preferences", "host": ["{{baseUrl}}"], "path": ["vehicles", "reminder-preferences"] },
+            "description": "Any category with no saved row yet defaults to enabled: true in the response."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Reminder Preferences - Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preferences\": [\n    { \"serviceType\": \"OIL_CHANGE\", \"enabled\": true },\n    { \"serviceType\": \"TIRE_ROTATION\", \"enabled\": false }\n  ],\n  \"leadTimeDays\": 7\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/vehicles/reminder-preferences", "host": ["{{baseUrl}}"], "path": ["vehicles", "reminder-preferences"] },
+            "description": "Upserts every row in one call. leadTimeDays: 1-60, only meaningfully affects month-based interval rules (see vehicle-reminder.util.ts)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Vehicle - Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/vehicles/{{vehicleId}}", "host": ["{{baseUrl}}"], "path": ["vehicles", "{{vehicleId}}"] },
+            "description": "204 No Content. Run last in this folder - it also cascades the vehicle's maintenance records."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "16 - Provider Fleet Vehicles",
+      "item": [
+        {
+          "name": "Add Fleet Vehicle - Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('fleetVehicleId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"COMMERCIAL\",\n  \"make\": \"Tata\",\n  \"model\": \"Ace\",\n  \"plateNumber\": \"KA01XY5678\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/provider-fleet-vehicles", "host": ["{{baseUrl}}"], "path": ["provider-fleet-vehicles"] },
+            "description": "PROVIDER role only - a provider's own service vehicles, distinct from a Customer's Vehicle records above."
+          },
+          "response": []
+        },
+        {
+          "name": "List My Fleet Vehicles - Provider",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/provider-fleet-vehicles", "host": ["{{baseUrl}}"], "path": ["provider-fleet-vehicles"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Fleet Vehicle - Provider",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"plateNumber\": \"KA01XY9999\"\n}" },
+            "url": { "raw": "{{baseUrl}}/provider-fleet-vehicles/{{fleetVehicleId}}", "host": ["{{baseUrl}}"], "path": ["provider-fleet-vehicles", "{{fleetVehicleId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Fleet Vehicle - Provider",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/provider-fleet-vehicles/{{fleetVehicleId}}", "host": ["{{baseUrl}}"], "path": ["provider-fleet-vehicles", "{{fleetVehicleId}}"] },
+            "description": "204 No Content. Run last in this folder."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "17 - Live Tracking",
+      "item": [
+        {
+          "name": "Get Route For Request",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customerAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/tracking/requests/{{requestId}}/route", "host": ["{{baseUrl}}"], "path": ["tracking", "requests", "{{requestId}}", "route"] },
+            "description": "Ch32/Ch54's real-driving-route (OSRM) lookup for the mobile live-tracking map - pulled by the client on its own coarse throttle, not pushed over the WebSocket gateway. A customer only sees the route for their own request; swap the Authorization header for {{providerAccessToken}} to test the provider's own-accepted-job path instead. Requires an ACCEPTED-or-later assignment to exist for {{requestId}}."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -8,11 +8,12 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { AssignmentStatus } from "@prisma/client";
-import { RequestStatus } from "@motiq/types";
+import { AssignmentStatus, RequestStatus as PrismaRequestStatus } from "@prisma/client";
+import { ProviderVerificationStatus, RequestStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import {
   DomainEvents,
+  MatchingFailedEvent,
   ProviderAssignedEvent,
   ProviderTimedOutEvent,
   RequestCompletedEvent,
@@ -20,6 +21,7 @@ import {
 } from "../../common/events/domain-events";
 import { ProviderService } from "../provider/provider.service";
 import { RequestService } from "../request/request.service";
+import { isEligibleForMatching } from "../provider/provider-verification-state-machine";
 import { AiService } from "../ai/ai.service";
 
 const DEFAULT_SEARCH_RADIUS_METERS = 10_000;
@@ -98,6 +100,9 @@ export class MatchingService {
         `No providers available for ServiceRequest ${serviceRequestId} — expiring (Ch7 §7.5.3's "no provider available" outcome).`,
       );
       await this.requestService.transition(serviceRequestId, RequestStatus.EXPIRED);
+      this.events.emit(DomainEvents.MatchingFailed, {
+        serviceRequestId,
+      } satisfies MatchingFailedEvent);
       return { offered: false as const, reason: "no_provider_available" as const };
     }
 
@@ -110,6 +115,7 @@ export class MatchingService {
         providerProfileId: provider.id,
         providerVerificationStatusAtAssignment: provider.verificationStatus,
         distanceMeters: topRanked.distanceMeters,
+        providerTrustScoreAtOffer: provider.trustScore,
       },
     });
 
@@ -229,15 +235,65 @@ export class MatchingService {
   }
 
   /**
+   * The matching-ranking training-data export (see the ML roadmap): every
+   * Assignment already carries what the ranker saw at decision time
+   * (distanceMeters, providerVerificationStatusAtAssignment,
+   * providerTrustScoreAtOffer) plus its own outcome (status,
+   * offeredAt/respondedAt) — this just joins in the request's issueType and
+   * final status for the label. Cursor-paginated, same convention as every
+   * other list endpoint (docs/api-conventions.md).
+   */
+  async listTrainingDataAssignments(params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const assignments = await this.prisma.assignment.findMany({
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { offeredAt: "desc" },
+      include: {
+        serviceRequest: { select: { issueType: true, status: true } },
+      },
+    });
+
+    const hasMore = assignments.length > limit;
+    const page = hasMore ? assignments.slice(0, limit) : assignments;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
+  }
+
+  /**
    * Used by TrackingGateway (Ch54) to find which ServiceRequest a provider's
    * location update should broadcast to — assumes a provider works one job
    * at a time (a reasonable bootstrap-scope simplification; nothing in the
-   * schema enforces it), so at most one ACCEPTED assignment exists per
-   * provider at once.
+   * schema enforces it). `Assignment.status` never transitions away from
+   * ACCEPTED once a job finishes — there's no "job completed" state on
+   * Assignment itself, only on ServiceRequest — so a provider who has ever
+   * completed a job accumulates multiple ACCEPTED assignments over time.
+   * Filtering on Assignment.status alone (the previous version of this
+   * query) would non-deterministically match a long-finished job instead of
+   * the current one, silently broadcasting live location into the wrong
+   * (nobody-listening) request room. Joins against ServiceRequest and
+   * excludes every terminal status, then takes the most recently offered
+   * match as a defensive tie-breaker.
    */
   async getActiveAssignmentForProvider(providerProfileId: string) {
     return this.prisma.assignment.findFirst({
-      where: { providerProfileId, status: AssignmentStatus.ACCEPTED },
+      where: {
+        providerProfileId,
+        status: AssignmentStatus.ACCEPTED,
+        serviceRequest: {
+          status: {
+            notIn: [
+              PrismaRequestStatus.COMPLETED,
+              PrismaRequestStatus.CANCELLED_BY_CUSTOMER,
+              PrismaRequestStatus.CANCELLED_BY_PROVIDER,
+              PrismaRequestStatus.FAILED,
+            ],
+          },
+        },
+      },
+      orderBy: { offeredAt: "desc" },
     });
   }
 
@@ -273,6 +329,78 @@ export class MatchingService {
       );
     }
     return this.requestService.transition(assignment.serviceRequestId, to);
+  }
+
+  /**
+   * Ch61's admin manual dispatch override — the escape hatch for a request
+   * automated matching gave up on (EXPIRED, "no_provider_available") or
+   * hasn't resolved yet (MATCHING). An admin's decision is immediately
+   * binding: no offer/response phase, straight to ACCEPTED. Deliberately
+   * reuses every guard automated dispatch would apply — same-city (CLAUDE.md
+   * rule 8, now enforceable thanks to ServiceAreaService.resolveForPoint)
+   * and verification eligibility — a human override still can never assign
+   * a SUSPENDED/DELISTED provider or reach across cities; those are hard
+   * trust-and-safety/data-scoping lines, not just automation conveniences.
+   */
+  async adminOverrideDispatch(serviceRequestId: string, providerProfileId: string) {
+    const request = await this.requestService.findById(serviceRequestId);
+    const currentStatus = request.status as unknown as RequestStatus;
+    if (currentStatus !== RequestStatus.MATCHING && currentStatus !== RequestStatus.EXPIRED) {
+      throw new BadRequestException(
+        `ServiceRequest ${serviceRequestId} is not awaiting dispatch (status: ${currentStatus}) — ` +
+          "manual override only applies to MATCHING or EXPIRED requests.",
+      );
+    }
+
+    const provider = await this.providerService.findById(providerProfileId);
+    if (provider.serviceAreaId !== request.serviceAreaId) {
+      throw new BadRequestException(
+        `Provider ${providerProfileId} belongs to a different ServiceArea than ServiceRequest ${serviceRequestId}.`,
+      );
+    }
+    if (!isEligibleForMatching(provider.verificationStatus as unknown as ProviderVerificationStatus)) {
+      throw new BadRequestException(
+        `Provider ${providerProfileId} is not eligible for matching (verificationStatus: ${provider.verificationStatus}).`,
+      );
+    }
+
+    // Any automated OFFERED assignment this request already has is
+    // superseded, not rejected — the provider it was offered to never
+    // actually declined it, an admin just overrode the whole decision.
+    await this.prisma.assignment.updateMany({
+      where: { serviceRequestId, status: AssignmentStatus.OFFERED },
+      data: { status: AssignmentStatus.SUPERSEDED, respondedAt: new Date() },
+    });
+
+    const distanceMeters = await this.providerService.getDistanceToServiceRequestPickup(
+      providerProfileId,
+      serviceRequestId,
+    );
+
+    const assignment = await this.prisma.assignment.create({
+      data: {
+        serviceRequestId,
+        providerProfileId,
+        status: AssignmentStatus.ACCEPTED,
+        providerVerificationStatusAtAssignment: provider.verificationStatus,
+        distanceMeters,
+        providerTrustScoreAtOffer: provider.trustScore,
+        respondedAt: new Date(),
+      },
+    });
+
+    await this.requestService.transition(serviceRequestId, RequestStatus.PROVIDER_ACCEPTED);
+
+    // Same event automated dispatch emits — the mobile apps and
+    // NotificationEventListener react to it identically either way, no
+    // special-casing needed anywhere downstream of this.
+    this.events.emit(DomainEvents.ProviderAssigned, {
+      serviceRequestId,
+      assignmentId: assignment.id,
+      providerProfileId,
+    } satisfies ProviderAssignedEvent);
+
+    return assignment;
   }
 
   private async getOwnedOfferOrThrow(assignmentId: string, providerProfileId: string) {

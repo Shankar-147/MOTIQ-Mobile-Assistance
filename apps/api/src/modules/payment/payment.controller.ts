@@ -23,6 +23,7 @@ import { RolesGuard } from "../identity/auth/guards/roles.guard";
 import { RequestService } from "../request/request.service";
 import { PaymentService } from "./payment.service";
 import { CreateCommissionRateDto } from "./dto/create-commission-rate.dto";
+import { ConfirmPaymentDto } from "./dto/confirm-payment.dto";
 
 @Controller()
 export class PaymentController {
@@ -44,6 +45,40 @@ export class PaymentController {
       throw new ForbiddenException("You can only view payment for your own service requests.");
     }
     return this.paymentService.findByServiceRequestId(id);
+  }
+
+  // Ch57's mobile checkout screen — the customer's own checkout SDK success
+  // callback, confirmed here via PaymentService.confirmClientPayment()'s
+  // signature check. Same ownership discipline as the GET above: a customer
+  // can only ever confirm their own request's payment.
+  @Post("requests/:id/payment/confirm")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  async confirmPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ConfirmPaymentDto,
+  ) {
+    const request = await this.requestService.findById(id);
+    if (request.customerProfileId !== user.profileId) {
+      throw new ForbiddenException("You can only confirm payment for your own service requests.");
+    }
+    return this.paymentService.confirmClientPayment(
+      id,
+      dto.razorpayOrderId,
+      dto.razorpayPaymentId,
+      dto.razorpaySignature,
+    );
+  }
+
+  // Ch72's mobile Provider app earnings screen — new in this phase, see
+  // PaymentService.getEarningsSummaryForProvider()'s comment on why this
+  // lives here (PaymentModule owns Payment) rather than on ProviderController.
+  @Get("providers/me/earnings")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROVIDER)
+  getOwnEarnings(@CurrentUser() user: AuthenticatedUser) {
+    return this.paymentService.getEarningsSummaryForProvider(user.profileId);
   }
 
   // Setting a city's commission rate is money-related configuration (ADR

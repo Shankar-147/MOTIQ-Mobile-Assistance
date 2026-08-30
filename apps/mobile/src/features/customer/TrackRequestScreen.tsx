@@ -18,6 +18,7 @@ import { LiveTrackingMap, GeoPoint } from "../../components/LiveTrackingMap";
 import { StatusTimeline, TimelineStep } from "../../components/StatusTimeline";
 import { Card, InitialsAvatar, LoadingScreen } from "../../components/ui";
 import { SosButton } from "../sos/SosButton";
+import { useRouteToPickup } from "../../hooks/useRouteToPickup";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "TrackRequest">;
 
@@ -59,6 +60,8 @@ export function TrackRequestScreen({ route, navigation }: Props) {
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [location, setLocation] = useState<LocationUpdateEvent | null>(null);
   const [provider, setProvider] = useState<ProviderPublicProfile | null>(null);
+  const movingPoint = location ? { latitude: location.latitude, longitude: location.longitude } : null;
+  const drivingRoute = useRouteToPickup(serviceRequestId, movingPoint);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,13 +104,18 @@ export function TrackRequestScreen({ route, navigation }: Props) {
   }
 
   const stepIndex = status ? STEP_INDEX[status] ?? 4 : 0;
+  // The real-route ETA (RoutingService) is preferred when available — it's
+  // built from an actual road-path duration, narrower/more honest than the
+  // straight-line one the WebSocket gateway pushes on every ping.
+  const eta = drivingRoute?.eta ?? location?.eta ?? null;
 
   return (
     <Box flex={1} bg="$backgroundLight50">
       <LiveTrackingMap
         pickup={pickup}
-        moving={location ? { latitude: location.latitude, longitude: location.longitude } : null}
+        moving={movingPoint}
         movingLabel={provider?.businessName}
+        routeGeometry={drivingRoute?.geometry}
         bottomInset={location ? 180 : 16}
       />
 
@@ -154,10 +162,10 @@ export function TrackRequestScreen({ route, navigation }: Props) {
                   </HStack>
                 ) : null}
               </Box>
-              {location.eta ? (
+              {eta ? (
                 <Box bg="$primary50" borderRadius="$full" px="$3" py="$2">
                   <Text color="$primary700" fontWeight="$extrabold" size="sm">
-                    {location.eta.minMinutes}-{location.eta.maxMinutes} min
+                    {eta.minMinutes}-{eta.maxMinutes} min
                   </Text>
                 </Box>
               ) : null}
