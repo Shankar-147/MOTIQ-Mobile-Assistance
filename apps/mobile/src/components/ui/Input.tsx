@@ -1,4 +1,5 @@
 import React from "react";
+import type { KeyboardTypeOptions } from "react-native";
 import {
   FormControl,
   FormControlLabel,
@@ -15,12 +16,23 @@ interface AppInputProps {
   placeholder?: string;
   multiline?: boolean;
   accessibilityLabel?: string;
+  keyboardType?: KeyboardTypeOptions;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }
 
 /** The project's one text input — every form routes through this instead of
  * a hand-rolled `TextInput` + `StyleSheet`, per CLAUDE.md's gluestack-ui
  * component-first rule. */
-export function Input({ label, value, onChangeText, placeholder, multiline = false, accessibilityLabel }: AppInputProps) {
+export function Input({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline = false,
+  accessibilityLabel,
+  keyboardType,
+  autoCapitalize,
+}: AppInputProps) {
   return (
     <FormControl>
       {label ? (
@@ -37,6 +49,8 @@ export function Input({ label, value, onChangeText, placeholder, multiline = fal
           textAlignVertical={multiline ? "top" : "center"}
           py={multiline ? "$3" : undefined}
           accessibilityLabel={accessibilityLabel ?? label ?? placeholder}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
         />
       </GSInput>
     </FormControl>

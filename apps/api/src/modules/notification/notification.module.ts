@@ -6,6 +6,8 @@ import { SMS_GATEWAY } from "./gateways/sms-gateway.port";
 import { TwilioSmsGatewayAdapter } from "./gateways/twilio-sms-gateway.adapter";
 import { PUSH_GATEWAY } from "./gateways/push-gateway.port";
 import { FcmPushGatewayAdapter } from "./gateways/fcm-push-gateway.adapter";
+import { EMAIL_GATEWAY } from "./gateways/email-gateway.port";
+import { GmailEmailGatewayAdapter } from "./gateways/gmail-email-gateway.adapter";
 
 /**
  * Owns Notification, PushDeviceToken, NotificationPreference and the
@@ -21,6 +23,7 @@ import { FcmPushGatewayAdapter } from "./gateways/fcm-push-gateway.adapter";
     NotificationEventListener,
     { provide: SMS_GATEWAY, useClass: TwilioSmsGatewayAdapter },
     { provide: PUSH_GATEWAY, useClass: FcmPushGatewayAdapter },
+    { provide: EMAIL_GATEWAY, useClass: GmailEmailGatewayAdapter },
   ],
   exports: [NotificationService],
 })

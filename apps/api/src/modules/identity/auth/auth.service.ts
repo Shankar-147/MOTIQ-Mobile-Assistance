@@ -63,10 +63,11 @@ export class AuthService {
       },
     });
 
-    // Real Twilio delivery as of Phase 5 (ADR 0017) — degrades to a logged
-    // fallback when TWILIO_* isn't configured, same as every other
-    // unconfigured third-party adapter in this codebase.
-    await this.notifications.sendOtpSms(phone, code, OTP_TTL_SECONDS);
+    // Email delivery (not SMS) for now — Twilio's trial account rejects
+    // custom SMS templates in this environment (see GmailEmailGatewayAdapter's
+    // doc comment). Degrades to a logged fallback when EMAIL_SMTP_* isn't
+    // configured, same as every other unconfigured third-party adapter here.
+    await this.notifications.sendOtpEmail(dto.email, code, OTP_TTL_SECONDS);
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<TokenPairResponse> {

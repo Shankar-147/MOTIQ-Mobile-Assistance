@@ -11,6 +11,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "PhoneEntry">;
 export function PhoneEntryScreen({ route, navigation }: Props) {
   const { intendedRole } = route.params;
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,10 +19,10 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
     setError(null);
     setSubmitting(true);
     try {
-      await authApi.requestOtp(phone);
+      await authApi.requestOtp(phone, email);
       navigation.navigate("OtpVerify", { phone, intendedRole });
     } catch {
-      setError("Couldn't send a verification code. Check the number and try again.");
+      setError("Couldn't send a verification code. Check the number/email and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -35,11 +36,19 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
         </Center>
         <Heading size="xl">What's your number?</Heading>
         <Text color="$textLight500" textAlign="center" mt="$1">
-          We'll text you a one-time code to sign in.
+          We'll email you a one-time code to sign in.
         </Text>
       </Center>
 
       <Input label="Phone number" value={phone} onChangeText={setPhone} placeholder="+91XXXXXXXXXX" />
+      <Input
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="you@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
       {error ? (
         <Text color="$error600" size="sm">
           {error}
@@ -48,7 +57,7 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
       <Button
         label={submitting ? "Sending…" : "Send code"}
         accessibilityLabel="Send verification code"
-        disabled={submitting || phone.length < 8}
+        disabled={submitting || phone.length < 8 || email.length < 5}
         loading={submitting}
         onPress={handleSubmit}
       />
