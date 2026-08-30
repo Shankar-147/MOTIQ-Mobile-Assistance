@@ -11,7 +11,7 @@ module.exports = {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    icon: "./assets/icon.jpeg",
+    icon: "./assets/icon.png",
     assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: false,
@@ -27,7 +27,7 @@ module.exports = {
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "ACCESS_BACKGROUND_LOCATION"],
       adaptiveIcon: {
-        foregroundImage: "./assets/icon.jpeg",
+        foregroundImage: "./assets/icon.png",
         backgroundColor: "#000000",
       },
     },
