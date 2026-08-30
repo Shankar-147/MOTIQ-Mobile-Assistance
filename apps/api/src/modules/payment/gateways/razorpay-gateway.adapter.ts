@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import Razorpay from "razorpay";
 import type { Money } from "../../../common/money";
 import { CreateOrderResult, PaymentGatewayPort } from "./payment-gateway.port";
+import { verifyRazorpayPaymentSignature } from "./razorpay-signature.util";
 
 /**
  * Ch57's Razorpay integration, behind PaymentGatewayPort (Ch32). No API keys
@@ -17,10 +18,14 @@ import { CreateOrderResult, PaymentGatewayPort } from "./payment-gateway.port";
 export class RazorpayGatewayAdapter implements PaymentGatewayPort {
   private readonly logger = new Logger(RazorpayGatewayAdapter.name);
   private readonly client: Razorpay | null;
+  private readonly keyId: string | null;
+  private readonly keySecret: string | null;
 
   constructor(config: ConfigService) {
     const keyId = config.get<string>("RAZORPAY_KEY_ID");
     const keySecret = config.get<string>("RAZORPAY_KEY_SECRET");
+    this.keyId = keyId ?? null;
+    this.keySecret = keySecret ?? null;
     this.client = keyId && keySecret ? new Razorpay({ key_id: keyId, key_secret: keySecret }) : null;
 
     if (!this.client) {
@@ -33,6 +38,17 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
 
   isConfigured(): boolean {
     return this.client !== null;
+  }
+
+  getPublicKeyId(): string | null {
+    return this.keyId;
+  }
+
+  verifyClientPaymentSignature(orderId: string, paymentId: string, signature: string): boolean {
+    if (!this.keySecret) {
+      return false;
+    }
+    return verifyRazorpayPaymentSignature(orderId, paymentId, signature, this.keySecret);
   }
 
   async createOrder(params: {

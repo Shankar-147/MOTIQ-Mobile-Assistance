@@ -23,3 +23,25 @@ export function verifyRazorpaySignature(
   }
   return timingSafeEqual(expectedBuf, providedBuf);
 }
+
+/**
+ * Razorpay's client-checkout verification formula — distinct from the
+ * webhook's (signs `orderId|paymentId` with the API *key secret*, not a
+ * separate webhook secret). This is the immediate-UX confirmation path a
+ * customer's own checkout success callback drives; the webhook above remains
+ * the authoritative reconciliation source of truth and is unchanged.
+ */
+export function verifyRazorpayPaymentSignature(
+  orderId: string,
+  paymentId: string,
+  signature: string,
+  keySecret: string,
+): boolean {
+  const expected = createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const providedBuf = Buffer.from(signature, "utf8");
+  if (expectedBuf.length !== providedBuf.length) {
+    return false;
+  }
+  return timingSafeEqual(expectedBuf, providedBuf);
+}

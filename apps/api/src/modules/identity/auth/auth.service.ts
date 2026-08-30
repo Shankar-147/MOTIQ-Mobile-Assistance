@@ -92,11 +92,6 @@ export class AuthService {
       throw new BadRequestException("Invalid code.");
     }
 
-    await this.prisma.otpChallenge.update({
-      where: { id: challenge.id },
-      data: { consumedAt: new Date() },
-    });
-
     const existingUser = await this.prisma.user.findUnique({
       where: { phone: dto.phone },
       include: { customerProfile: true, providerProfile: true },
@@ -113,10 +108,56 @@ export class AuthService {
         // treated as a data-integrity fault, not a normal auth failure.
         throw new BadRequestException(`Account for ${dto.phone} is missing its profile.`);
       }
+      await this.consumeChallenge(challenge.id);
       return this.issueTokenPair(existingUser.id, existingUser.role as unknown as UserRole, profileId);
     }
 
+    // New user: validate the registration fields BEFORE consuming the code.
+    // The code and the registration data (businessName, serviceAreaId, ...)
+    // are logically separate failure modes — a typo'd/missing registration
+    // field shouldn't burn an otherwise-correct, still-fresh OTP and force
+    // the user to request an entirely new code just to retry the same code.
+    await this.assertRegistrationInputValid(dto);
+    await this.consumeChallenge(challenge.id);
     return this.registerViaOtp(dto);
+  }
+
+  private async consumeChallenge(challengeId: string): Promise<void> {
+    await this.prisma.otpChallenge.update({
+      where: { id: challengeId },
+      data: { consumedAt: new Date() },
+    });
+  }
+
+  /** Single source of truth for "is this registration request complete,"
+   * called both here (before the OTP is consumed) and again at the top of
+   * registerViaOtp (defense-in-depth against calling it directly). Read-only
+   * — never a side effect — so calling it twice is harmless. */
+  private async assertRegistrationInputValid(dto: VerifyOtpDto): Promise<void> {
+    if (!dto.role) {
+      throw new BadRequestException(
+        `No account exists for ${dto.phone} yet — include "role" (CUSTOMER or PROVIDER) to register.`,
+      );
+    }
+
+    if (dto.role === UserRole.CUSTOMER) {
+      if (!dto.displayName) {
+        throw new BadRequestException("displayName is required to register as a customer.");
+      }
+      return;
+    }
+
+    if (!dto.businessName || !dto.serviceAreaId) {
+      throw new BadRequestException(
+        "businessName and serviceAreaId are required to register as a provider.",
+      );
+    }
+    const serviceArea = await this.prisma.serviceArea.findUnique({
+      where: { id: dto.serviceAreaId },
+    });
+    if (!serviceArea) {
+      throw new NotFoundException(`ServiceArea ${dto.serviceAreaId} not found.`);
+    }
   }
 
   async adminLogin(dto: AdminLoginDto): Promise<TokenPairResponse> {
@@ -233,16 +274,11 @@ export class AuthService {
   }
 
   private async registerViaOtp(dto: VerifyOtpDto): Promise<TokenPairResponse> {
-    if (!dto.role) {
-      throw new BadRequestException(
-        `No account exists for ${dto.phone} yet — include "role" (CUSTOMER or PROVIDER) to register.`,
-      );
-    }
+    // Defense-in-depth: verifyOtp() already calls this before consuming the
+    // challenge, but this method is only ever reached via that path.
+    await this.assertRegistrationInputValid(dto);
 
     if (dto.role === UserRole.CUSTOMER) {
-      if (!dto.displayName) {
-        throw new BadRequestException("displayName is required to register as a customer.");
-      }
       const { user, profile } = await this.prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: { phone: dto.phone, role: PrismaUserRole.CUSTOMER },
@@ -256,18 +292,6 @@ export class AuthService {
     }
 
     // PROVIDER registration
-    if (!dto.businessName || !dto.serviceAreaId) {
-      throw new BadRequestException(
-        "businessName and serviceAreaId are required to register as a provider.",
-      );
-    }
-    const serviceArea = await this.prisma.serviceArea.findUnique({
-      where: { id: dto.serviceAreaId },
-    });
-    if (!serviceArea) {
-      throw new NotFoundException(`ServiceArea ${dto.serviceAreaId} not found.`);
-    }
-
     const { user, profile } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: { phone: dto.phone, role: PrismaUserRole.PROVIDER },

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConsentModule } from "../consent/consent.module";
+import { ServiceAreaModule } from "../service-area/service-area.module";
 import { RequestController } from "./request.controller";
 import { RequestService } from "./request.service";
 
@@ -12,7 +13,7 @@ import { RequestService } from "./request.service";
  * container cannot resolve. The mobile receipt read (GET /requests/:id/payment)
  * lives on PaymentController instead — see payment.module.ts's comment. */
 @Module({
-  imports: [ConsentModule],
+  imports: [ConsentModule, ServiceAreaModule],
   controllers: [RequestController],
   providers: [RequestService],
   exports: [RequestService],

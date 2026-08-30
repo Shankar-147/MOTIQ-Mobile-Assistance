@@ -43,6 +43,8 @@ Thumbs.db
 # Expo (apps/mobile)
 .expo/
 apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
 
 # Firebase client config (contains project-specific API key)
 apps/mobile/google-services.json

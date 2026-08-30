@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-worklets/android/build.gradle b/node_modules/react-native-worklets/android/build.gradle
+index e189e1c..2c4de77 100644
+--- a/node_modules/react-native-worklets/android/build.gradle
++++ b/node_modules/react-native-worklets/android/build.gradle
+@@ -216,6 +216,16 @@ android {
+         externalNativeBuild {
+             cmake {
+                 arguments "-DANDROID_STL=c++_shared",
++                        // Workaround: on this machine, CMake's implicit-link-library
++                        // detection for this NDK/CMake combo drops -lc++_shared from
++                        // the generated link line entirely (confirmed by inspecting
++                        // the generated build.ninja — LINK_LIBRARIES had no libc++
++                        // reference at all), causing "undefined symbol" errors for
++                        // every C++ runtime symbol (operator new/delete, __cxa_*,
++                        // std:: exception/RTTI machinery) despite ANDROID_STL being
++                        // set correctly. Forcing it explicitly via the shared linker
++                        // flags fixes the link.
++                        "-DCMAKE_SHARED_LINKER_FLAGS=-lc++_shared",
+                         "-DREACT_NATIVE_MINOR_VERSION=${REACT_NATIVE_MINOR_VERSION}",
+                         "-DANDROID_TOOLCHAIN=clang",
+                         "-DREACT_NATIVE_DIR=${toPlatformFileString(reactNativeRootDir.path)}",

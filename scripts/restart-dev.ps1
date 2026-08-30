@@ -1,8 +1,8 @@
-# Restarts the MOTIQ backend API and Expo dev server cleanly.
+# Restarts the MOTIQ backend API, admin console, and Expo dev server cleanly.
 #
 # Handles the two recurring problems seen during manual restarts:
 #   1. Stopping a background task doesn't always kill its underlying node.exe
-#      on Windows, so stale processes pile up and fight over ports 3001/8081.
+#      on Windows, so stale processes pile up and fight over ports 3000/3001/8081.
 #   2. This machine's Wi-Fi IP changes between sessions (different networks,
 #      DHCP renewal) — apps/mobile/.env and Expo's own advertised host both
 #      need to match the *current* IP or a phone can't reach either service.
@@ -13,8 +13,8 @@
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
-Write-Host "Killing anything on ports 3001 (API) and 8081 (Expo)..." -ForegroundColor Cyan
-foreach ($port in 3001, 8081) {
+Write-Host "Killing anything on ports 3000 (Admin console), 3001 (API) and 8081 (Expo)..." -ForegroundColor Cyan
+foreach ($port in 3000, 3001, 8081) {
     $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     foreach ($conn in $conns) {
         try {
@@ -52,12 +52,16 @@ Write-Host "Updated apps/mobile/.env with current IP." -ForegroundColor Green
 Write-Host "Starting backend API in a new window..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$repoRoot'; npm run --workspace apps/api start:dev"
 
+Write-Host "Starting admin console in a new window..." -ForegroundColor Cyan
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$repoRoot'; npm run --workspace apps/web dev"
+
 Write-Host "Starting Expo dev server in a new window..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$repoRoot\apps\mobile'; `$env:REACT_NATIVE_PACKAGER_HOSTNAME='$wifiIp'; npx expo start --clear"
 
 Write-Host ""
-Write-Host "Done. Two new terminal windows are starting up:" -ForegroundColor Green
-Write-Host "  - Backend API:  http://${wifiIp}:3001/api/v1"
-Write-Host "  - Expo/Metro:   http://${wifiIp}:8081"
+Write-Host "Done. Three new terminal windows are starting up:" -ForegroundColor Green
+Write-Host "  - Backend API:     http://${wifiIp}:3001/api/v1"
+Write-Host "  - Admin console:   http://localhost:3000"
+Write-Host "  - Expo/Metro:      http://${wifiIp}:8081"
 Write-Host ""
 Write-Host "On your phone: connect the dev-build app to ${wifiIp}:8081 (same Wi-Fi network required)." -ForegroundColor Yellow

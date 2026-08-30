@@ -11,6 +11,7 @@ import { LiveTrackingMap, GeoPoint } from "../../components/LiveTrackingMap";
 import { StatusTimeline, TimelineStep } from "../../components/StatusTimeline";
 import { Button, Card, LoadingScreen } from "../../components/ui";
 import { SosButton } from "../sos/SosButton";
+import { useRouteToPickup } from "../../hooks/useRouteToPickup";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "ActiveJob">;
 
@@ -61,6 +62,7 @@ export function ActiveJobScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [ownPosition, setOwnPosition] = useState<GeoPoint | null>(null);
+  const drivingRoute = useRouteToPickup(serviceRequestId, ownPosition);
 
   useEffect(() => {
     requestApi
@@ -127,7 +129,13 @@ export function ActiveJobScreen({ route, navigation }: Props) {
 
   return (
     <Box flex={1} bg="$backgroundLight50">
-      <LiveTrackingMap pickup={pickup} moving={ownPosition} movingLabel="You" bottomInset={140} />
+      <LiveTrackingMap
+        pickup={pickup}
+        moving={ownPosition}
+        movingLabel="You"
+        routeGeometry={drivingRoute?.geometry}
+        bottomInset={140}
+      />
 
       <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["top"]}>
         <Card m="$3">

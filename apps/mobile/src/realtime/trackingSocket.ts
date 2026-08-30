@@ -57,6 +57,25 @@ export function onLocationUpdate(handler: (event: LocationUpdateEvent) => void):
   return () => socket?.off("location:update", handler);
 }
 
+export interface RequestMatchedEvent {
+  assignmentId: string;
+}
+
+/** Ch71's mobile Customer app Matching screen — pushed the instant
+ * MatchingService offers a provider, via TrackingGateway's bridge from the
+ * ProviderAssigned domain event onto this request's Socket.IO room. */
+export function onRequestMatched(handler: (event: RequestMatchedEvent) => void): () => void {
+  socket?.on("request:matched", handler);
+  return () => socket?.off("request:matched", handler);
+}
+
+/** Pushed when dispatch() finds zero available providers and the request
+ * expires — see TrackingGateway's MatchingFailed bridge. */
+export function onMatchingFailed(handler: () => void): () => void {
+  socket?.on("request:matching-failed", handler);
+  return () => socket?.off("request:matching-failed", handler);
+}
+
 export function disconnectTrackingSocket(): void {
   socket?.disconnect();
   socket = null;

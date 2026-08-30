@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { PaymentStatus as PrismaPaymentStatus, Prisma } from "@prisma/client";
+import { AssignmentStatus, PaymentStatus as PrismaPaymentStatus, Prisma } from "@prisma/client";
 import { RequestStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { calculateCommissionSplit, money } from "../../common/money";
@@ -194,9 +194,106 @@ export class PaymentService {
 
   /** Ch57's mobile receipt screen — returns null (not a 404) when a request
    * hasn't reached COMPLETED/settlement yet, which is a normal transient
-   * state, not an error. */
+   * state, not an error. Attaches the gateway's public key id whenever an
+   * order exists and payment is still outstanding — the mobile checkout
+   * screen needs it to open a checkout session; it's a public identifier,
+   * never the key secret. */
   async findByServiceRequestId(serviceRequestId: string) {
-    return this.prisma.payment.findUnique({ where: { serviceRequestId } });
+    const payment = await this.prisma.payment.findUnique({ where: { serviceRequestId } });
+    if (!payment) {
+      return null;
+    }
+    const needsCheckout = payment.status === PrismaPaymentStatus.AUTHORIZED && payment.gatewayReference;
+    return {
+      ...payment,
+      razorpayKeyId: needsCheckout ? this.gateway.getPublicKeyId() : null,
+    };
+  }
+
+  /**
+   * The customer checkout screen's confirmation call — Razorpay's checkout
+   * SDK hands the client `razorpay_order_id`/`razorpay_payment_id`/
+   * `razorpay_signature` on a successful charge; this verifies that
+   * signature (a different formula from the webhook's, see
+   * verifyRazorpayPaymentSignature's doc comment) before trusting it.
+   * The webhook handler above remains the authoritative reconciliation path
+   * for CAPTURED — this is an additional, equally-verified path that gives
+   * the customer immediate feedback without waiting on a webhook round trip.
+   * Idempotent: replaying with the same (already-verified) values on an
+   * already-CAPTURED payment is a no-op, not an error.
+   */
+  async confirmClientPayment(
+    serviceRequestId: string,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string,
+  ) {
+    const payment = await this.prisma.payment.findUnique({ where: { serviceRequestId } });
+    if (!payment) {
+      throw new NotFoundException(`No Payment found for ServiceRequest ${serviceRequestId}`);
+    }
+    if (payment.gatewayReference !== razorpayOrderId) {
+      throw new BadRequestException("razorpayOrderId does not match this payment's order.");
+    }
+    if (payment.status === PrismaPaymentStatus.CAPTURED) {
+      return payment; // Already confirmed — idempotent no-op.
+    }
+
+    const valid = this.gateway.verifyClientPaymentSignature(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    );
+    if (!valid) {
+      throw new UnauthorizedException("Invalid Razorpay checkout signature.");
+    }
+
+    return this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PrismaPaymentStatus.CAPTURED },
+    });
+  }
+
+  /**
+   * Ch72's mobile Provider app earnings screen. Payment has no direct
+   * providerProfileId column (only serviceRequestId) — a provider's payments
+   * are found via the ACCEPTED Assignment on each request, the same join
+   * RatingService.submitForRequest uses via MatchingService.getAcceptedAssignment,
+   * done here as a direct relation filter since no cross-module call is
+   * needed. totalEarnings only counts CAPTURED payments — in an environment
+   * with no live gateway configured (see settleServiceRequest() above),
+   * payments stay PENDING and this will honestly read ₹0 until a real
+   * webhook fires, which is correct, not a bug.
+   */
+  async getEarningsSummaryForProvider(providerProfileId: string) {
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        serviceRequest: {
+          assignments: { some: { providerProfileId, status: AssignmentStatus.ACCEPTED } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const captured = payments.filter((p) => p.status === PrismaPaymentStatus.CAPTURED);
+    const pending = payments.filter(
+      (p) => p.status === PrismaPaymentStatus.PENDING || p.status === PrismaPaymentStatus.AUTHORIZED,
+    );
+    const sum = (rows: typeof payments) =>
+      rows.reduce((total, p) => total.plus(p.providerPayoutAmount), new Prisma.Decimal(0));
+
+    return {
+      totalEarnings: sum(captured).toFixed(2),
+      pendingAmount: sum(pending).toFixed(2),
+      completedPayoutCount: captured.length,
+      recentPayments: payments.slice(0, 10).map((p) => ({
+        id: p.id,
+        serviceRequestId: p.serviceRequestId,
+        amount: p.providerPayoutAmount.toFixed(2),
+        status: p.status,
+        createdAt: p.createdAt,
+      })),
+    };
   }
 
   private emitSettled(serviceRequestId: string, paymentId: string) {

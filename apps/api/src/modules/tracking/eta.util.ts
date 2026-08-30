@@ -44,3 +44,32 @@ export function estimateEta(
 function round(minutes: number): number {
   return Math.max(0, Math.round(minutes));
 }
+
+/** +/-10%: a real routing engine's duration over an actual road path is
+ * genuinely more precise than the fixed-speed straight-line guess above —
+ * a narrower band here is honest, not fabricated confidence. Still a range,
+ * never a bare point estimate, for the same Ch1 reason as estimateEta(). */
+const ROUTE_UNCERTAINTY_FRACTION = 0.1;
+
+/**
+ * Ch32's routing feature (RoutingService) feeds a real route's duration
+ * through here rather than inventing its own ETA shape — same EtaEstimate
+ * contract as the straight-line estimateEta() above, so callers/mobile don't
+ * need to know which source produced a given estimate.
+ */
+export function estimateEtaFromRouteDuration(distanceMeters: number, durationSeconds: number): EtaEstimate {
+  if (distanceMeters < 0) {
+    throw new Error("distanceMeters must not be negative");
+  }
+  if (durationSeconds < 0) {
+    throw new Error("durationSeconds must not be negative");
+  }
+
+  const estimatedMinutes = durationSeconds / 60;
+  return {
+    distanceMeters,
+    estimatedMinutes: round(estimatedMinutes),
+    minMinutes: round(estimatedMinutes * (1 - ROUTE_UNCERTAINTY_FRACTION)),
+    maxMinutes: round(estimatedMinutes * (1 + ROUTE_UNCERTAINTY_FRACTION)),
+  };
+}

@@ -2,6 +2,12 @@ import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
+import { useFonts, Sora_600SemiBold, Sora_700Bold } from "@expo-google-fonts/sora";
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_700Bold,
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { motiqConfig } from "./src/theme/gluestackConfig";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { useAuthStore } from "./src/store/authStore";
@@ -9,8 +15,22 @@ import { useConnectivityStore } from "./src/store/connectivityStore";
 import { usePendingOfferStore } from "./src/store/pendingOfferStore";
 import { watchConnectivityAndFlush } from "./src/api/offlineQueue";
 import { addNotificationTapListener, registerForPushNotifications } from "./src/notifications/pushRegistration";
+import { LoadingScreen } from "./src/components/ui";
+import { LanguageProvider } from "./src/i18n/LanguageContext";
 
 export default function App() {
+  // Ch72's Provider Home redesign introduces Sora/Plus Jakarta Sans (see
+  // theme/colors.ts's FONTS) — loaded once at the root, same pattern any
+  // custom-font screen in this app will share, rather than re-loading
+  // per-screen.
+  const [fontsLoaded] = useFonts({
+    Sora_600SemiBold,
+    Sora_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_700Bold,
+  });
+
   const hydrate = useAuthStore((state) => state.hydrate);
   const userId = useAuthStore((state) => state.user?.userId);
   const setConnected = useConnectivityStore((state) => state.setConnected);
@@ -53,10 +73,16 @@ export default function App() {
 
   return (
     <GluestackUIProvider config={motiqConfig}>
-      <NavigationContainer>
-        <StatusBar style="auto" />
-        <RootNavigator />
-      </NavigationContainer>
+      <LanguageProvider>
+        {fontsLoaded ? (
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </NavigationContainer>
+        ) : (
+          <LoadingScreen />
+        )}
+      </LanguageProvider>
     </GluestackUIProvider>
   );
 }

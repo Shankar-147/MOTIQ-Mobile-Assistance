@@ -62,6 +62,10 @@ enum AssignmentStatus {
   ACCEPTED
   REJECTED
   TIMED_OUT
+  /// Ch61's admin manual dispatch override superseded this OFFERED assignment
+  /// with a hand-picked provider — distinct from REJECTED, which means the
+  /// offered provider themselves declined it. Keeps the audit trail honest.
+  SUPERSEDED
 }
 
 /// Ch98 — never a boolean. See ADR 0005.
@@ -273,9 +277,11 @@ model CustomerProfile {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  vehicles        Vehicle[]
-  serviceRequests ServiceRequest[]
-  ratingsGiven    Rating[]         @relation("CustomerRatings")
+  vehicles                   Vehicle[]
+  serviceRequests            ServiceRequest[]
+  ratingsGiven               Rating[]                     @relation("CustomerRatings")
+  vehicleReminderPreferences VehicleReminderPreference[]
+  vehicleReminderSettings    VehicleReminderSettings?
 
   @@map("customer_profiles")
 }
@@ -309,9 +315,37 @@ model ProviderProfile {
   ratingsReceived       Rating[]                       @relation("ProviderRatings")
   locationPings         LocationPing[]
   verificationDocuments ProviderVerificationDocument[]
+  trustSnapshots        ProviderTrustSnapshot[]
 
   @@index([serviceAreaId, verificationStatus, presenceStatus])
   @@map("provider_profiles")
+}
+
+/// A point-in-time record of trust-score-relevant features, written every
+/// time ProviderService.recomputeTrustScore() runs (the single choke point
+/// where trustScore ever changes). ProviderProfile.trustScore itself has no
+/// history — without this table, the value it held when a past Assignment
+/// was offered is unrecoverable once it changes again. This is the training
+/// data a future ML trust-score model would learn from; see docs on the ML
+/// roadmap for why no public dataset can substitute for this.
+enum TrustSnapshotReason {
+  RATING_SUBMITTED
+  VERIFICATION_TRANSITION
+}
+
+model ProviderTrustSnapshot {
+  id                 String                     @id @default(uuid())
+  providerProfileId  String
+  providerProfile    ProviderProfile            @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  ratingAverage      Decimal                    @db.Decimal(3, 2)
+  completedJobCount  Int
+  verificationStatus ProviderVerificationStatus
+  trustScore         Decimal                    @db.Decimal(3, 2)
+  reason             TrustSnapshotReason
+  createdAt          DateTime                   @default(now())
+
+  @@index([providerProfileId, createdAt])
+  @@map("provider_trust_snapshots")
 }
 
 /// Ch98's KYC document submissions. fileUrl is a client-supplied reference
@@ -392,9 +426,112 @@ model Vehicle {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  serviceRequests ServiceRequest[]
+  serviceRequests            ServiceRequest[]
+  maintenanceRecords         VehicleMaintenanceRecord[]
+  maintenanceReminderLogs    VehicleMaintenanceReminderLog[]
 
   @@map("vehicles")
+}
+
+enum MaintenanceServiceType {
+  OIL_CHANGE
+  TIRE_ROTATION
+  BRAKE_SERVICE
+  BATTERY_CHECK
+  GENERAL_SERVICE
+  ENGINE_CHECK
+  COOLANT_CHECK
+  AIR_FILTER
+  LIGHTS_CHECK
+  OVERALL_HEALTH_CHECK
+  OTHER
+}
+
+/// Computed-on-read for display (maintenance-due.util.ts) — a Prisma enum too
+/// because VehicleMaintenanceReminderLog needs to persist a point-in-time
+/// value of it for reminder dedup (same reasoning as ProviderTrustSnapshot).
+enum MaintenanceDueStatus {
+  NOT_TRACKED
+  OK
+  DUE_SOON
+  OVERDUE
+}
+
+/// A customer-logged service event — the preventive-maintenance feature's
+/// core record. odometerKm across all of a vehicle's records is how
+/// "current mileage" is derived (no separate telemetry feed exists).
+model VehicleMaintenanceRecord {
+  id          String                 @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  serviceType MaintenanceServiceType
+  odometerKm  Int
+  servicedAt  DateTime               @default(now())
+  cost        Decimal?               @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime               @default(now())
+
+  @@index([vehicleId, servicedAt])
+  @@map("vehicle_maintenance_records")
+}
+
+/// Seeded rule-of-thumb defaults per (vehicleType, serviceType) — a config
+/// table, never a code constant, same precedent as CommissionRate/FareConfig.
+/// No admin UI to edit these yet in this bootstrap phase; direct DB edit,
+/// same as those two tables today.
+model MaintenanceIntervalRule {
+  id             String                 @id @default(uuid())
+  vehicleType    VehicleType
+  serviceType    MaintenanceServiceType
+  intervalKm     Int?
+  intervalMonths Int?
+  createdAt      DateTime               @default(now())
+
+  @@unique([vehicleType, serviceType])
+  @@map("maintenance_interval_rules")
+}
+
+/// Per-customer, per-category opt-out — defaults to enabled if no row exists
+/// (see VehicleReminderService). Ch71's mobile Reminder settings screen.
+model VehicleReminderPreference {
+  id                String                 @id @default(uuid())
+  customerProfileId String
+  customerProfile   CustomerProfile        @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  serviceType       MaintenanceServiceType
+  enabled           Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@unique([customerProfileId, serviceType])
+  @@map("vehicle_reminder_preferences")
+}
+
+/// One global "how early" setting per customer — separate from
+/// VehicleReminderPreference since it's not per-category (matches the
+/// mobile screen's single lead-time selector).
+model VehicleReminderSettings {
+  customerProfileId String          @id
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  leadTimeDays      Int             @default(7)
+  updatedAt         DateTime        @updatedAt
+
+  @@map("vehicle_reminder_settings")
+}
+
+/// Dedup log: the last status VehicleReminderService actually notified about
+/// per (vehicle, serviceType). Deleted once resolved back to OK/NOT_TRACKED
+/// so a future re-entry into DUE_SOON always notifies fresh rather than
+/// staying silently suppressed forever.
+model VehicleMaintenanceReminderLog {
+  id          String                 @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  serviceType MaintenanceServiceType
+  status      MaintenanceDueStatus
+  notifiedAt  DateTime               @default(now())
+
+  @@unique([vehicleId, serviceType])
+  @@map("vehicle_maintenance_reminder_logs")
 }
 
 /// Ch37 — deliberately distinct from Vehicle; fixes the V0 naming collision.
@@ -516,6 +653,12 @@ model Assignment {
   /// input when the job completes (ADR 0012) so fare doesn't need a second,
   /// separate distance source.
   distanceMeters                          Float?
+  /// Ranking-decision snapshot for a future matching ML model — the
+  /// provider's trustScore at the moment this offer was created. Nullable
+  /// because rows predating this field genuinely have no recorded value;
+  /// ProviderProfile.trustScore itself keeps changing, so this can never be
+  /// reconstructed after the fact once it does.
+  providerTrustScoreAtOffer               Decimal?                   @db.Decimal(3, 2)
   offeredAt                               DateTime                   @default(now())
   respondedAt                             DateTime?
   /// Optimistic lock (Ch43) — prevents double-assignment race conditions.

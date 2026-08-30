@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser, UserRole } from "@motiq/types";
 import { CurrentUser } from "../identity/auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../identity/auth/guards/jwt-auth.guard";
@@ -44,5 +44,16 @@ export class MatchingController {
   @Roles(UserRole.ADMIN)
   sweepExpired() {
     return this.matchingService.sweepExpiredOffers();
+  }
+
+  // The matching-ranking ML training-data export — see
+  // MatchingService.listTrainingDataAssignments()'s doc comment.
+  @Get("matching/training-data/assignments")
+  @Roles(UserRole.ADMIN)
+  listTrainingDataAssignments(@Query("cursor") cursor?: string, @Query("limit") limit?: string) {
+    return this.matchingService.listTrainingDataAssignments({
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 }

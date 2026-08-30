@@ -58,9 +58,12 @@ export function Button({
       isDisabled={disabled || loading}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel ?? label}
+      py="$3"
     >
       {loading ? <ButtonSpinner mr="$2" color="$white" /> : Icon ? <Icon size={18} color={ICON_COLOR[variant]} style={{ marginRight: 8 }} /> : null}
-      <ButtonText fontWeight="$bold">{label}</ButtonText>
+      <ButtonText fontWeight="$bold" textAlign="center" flexShrink={1} flexWrap="wrap">
+        {label}
+      </ButtonText>
     </GSButton>
   );
 }

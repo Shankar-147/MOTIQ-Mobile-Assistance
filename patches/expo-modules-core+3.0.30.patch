@@ -1,0 +1,29 @@
+diff --git a/node_modules/expo-modules-core/android/build.gradle b/node_modules/expo-modules-core/android/build.gradle
+index 80cee5d..cd56e8c 100644
+--- a/node_modules/expo-modules-core/android/build.gradle
++++ b/node_modules/expo-modules-core/android/build.gradle
+@@ -89,6 +89,10 @@ android {
+       cmake {
+         abiFilters(*reactNativeArchitectures())
+         arguments "-DANDROID_STL=c++_shared",
++          // See react-native-worklets/android/build.gradle's identical
++          // comment: this machine's CMake drops -lc++_shared from the
++          // generated link line for this NDK, forced back explicitly.
++          "-DCMAKE_SHARED_LINKER_FLAGS=-lc++_shared",
+           "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+           "-DREACT_NATIVE_DIR=${expoModuleExtension.reactNativeDir}",
+           "-DREACT_NATIVE_TARGET_VERSION=${expoModuleExtension.reactNativeVersion.minor}",
+@@ -102,6 +106,13 @@ android {
+   externalNativeBuild {
+     cmake {
+       path "CMakeLists.txt"
++      // Force CMake 3.31.6 (bundles ninja 1.12.1) instead of the SDK's
++      // "default" CMake 3.22.1, which bundles ninja 1.10.2 — an old ninja
++      // with documented Windows response-file/path-handling bugs that were
++      // silently dropping linker args (libc++_shared symbols) on this build.
++      // See docs.swmansion.com/react-native-reanimated/docs/guides/building-on-windows
++      // ("Ninja: Requires 1.12.0+, older versions have path-handling issues").
++      version "3.31.6"
+     }
+   }
+ 

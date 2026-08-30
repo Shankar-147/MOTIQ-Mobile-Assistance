@@ -5,6 +5,10 @@ export const requestApi = {
   create: (dto: CreateServiceRequestDto) => apiClient.post("/requests", dto),
   getById: (id: string) => apiClient.get(`/requests/${id}`),
   getPayment: (id: string) => apiClient.get(`/requests/${id}/payment`),
+  confirmPayment: (
+    id: string,
+    dto: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string },
+  ) => apiClient.post(`/requests/${id}/payment/confirm`, dto),
   cancel: (id: string) => apiClient.patch(`/requests/${id}/cancel`),
   submitRating: (requestId: string, stars: number, comment?: string) =>
     apiClient.post(`/requests/${requestId}/ratings`, { stars, comment }),

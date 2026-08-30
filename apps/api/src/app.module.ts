@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { JwtService } from "@nestjs/jwt";
 import { PrismaModule } from "./common/prisma/prisma.module";
@@ -10,7 +11,9 @@ import { HealthModule } from "./modules/health/health.module";
 import { ServiceAreaModule } from "./modules/service-area/service-area.module";
 import { IdentityModule } from "./modules/identity/identity.module";
 import { ProviderModule } from "./modules/provider/provider.module";
+import { ProviderFleetVehicleModule } from "./modules/provider-fleet-vehicle/provider-fleet-vehicle.module";
 import { CustomerModule } from "./modules/customer/customer.module";
+import { VehicleModule } from "./modules/vehicle/vehicle.module";
 import { RequestModule } from "./modules/request/request.module";
 import { MatchingModule } from "./modules/matching/matching.module";
 import { PricingModule } from "./modules/pricing/pricing.module";
@@ -36,6 +39,9 @@ import { SosModule } from "./modules/sos/sos.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot(),
+    // Ch71's vehicle-health reminders — the first scheduled job in this
+    // codebase (see VehicleReminderService's doc comment).
+    ScheduleModule.forRoot(),
     // Ch95 — global default rate limit, per-user (not just per-IP) via
     // resolveThrottleTracker (ADR 0020). Individual endpoints layer a
     // tighter @Throttle() limit on top where the sensitivity warrants it
@@ -62,7 +68,9 @@ import { SosModule } from "./modules/sos/sos.module";
     IdentityModule,
     ServiceAreaModule,
     ProviderModule,
+    ProviderFleetVehicleModule,
     CustomerModule,
+    VehicleModule,
     RequestModule,
     MatchingModule,
     PricingModule,

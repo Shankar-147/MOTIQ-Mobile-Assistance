@@ -7,6 +7,7 @@ import { RolesGuard } from "../identity/auth/guards/roles.guard";
 import { AdminService } from "./admin.service";
 import { ReviewVerificationDocumentDto } from "./dto/review-verification-document.dto";
 import { UpdateVerificationStatusDto } from "./dto/update-verification-status.dto";
+import { DispatchOverrideDto } from "./dto/dispatch-override.dto";
 
 /** Ch61's Admin & Operations Service — the provider-verification workflow
  * backend (Ch98). Document review is Admin|Support (day-to-day ops); tier
@@ -67,5 +68,26 @@ export class AdminController {
   @Roles(UserRole.ADMIN)
   sweepLapsedVerifications(@CurrentUser() user: AuthenticatedUser) {
     return this.adminService.sweepLapsedProviderVerifications(user.userId);
+  }
+
+  // Ch61/Ch137's manual-dispatch queue — requests automated matching either
+  // hasn't resolved yet or gave up on.
+  @Get("requests/needing-dispatch")
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  listRequestsNeedingDispatch(@Query("cursor") cursor?: string, @Query("limit") limit?: string) {
+    return this.adminService.listRequestsNeedingDispatch({ cursor, limit: limit ? Number(limit) : undefined });
+  }
+
+  // Ch61's admin manual dispatch override — a higher-stakes action than
+  // reviewing a document (it moves real money/ops flow), Admin-only, same
+  // posture as verification-status transitions above.
+  @Post("requests/:id/dispatch-override")
+  @Roles(UserRole.ADMIN)
+  dispatchOverride(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: DispatchOverrideDto,
+  ) {
+    return this.adminService.dispatchOverride(id, dto.providerProfileId, user.userId, dto.reason);
   }
 }

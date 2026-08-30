@@ -4,6 +4,7 @@ import { logoutAction } from "./actions";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/sos", label: "SOS alerts" },
+  { href: "/dispatch", label: "Dispatch queue" },
   { href: "/verifications", label: "Verification queue" },
   { href: "/providers", label: "Providers" },
   { href: "/service-areas", label: "Service areas" },

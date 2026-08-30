@@ -1,5 +1,6 @@
 import { Logger, UsePipes, ValidationPipe } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { OnEvent } from "@nestjs/event-emitter";
 import {
   ConnectedSocket,
   MessageBody,
@@ -11,6 +12,7 @@ import {
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { AuthenticatedUser, PresenceStatus, UserRole } from "@motiq/types";
+import { DomainEvents, MatchingFailedEvent, ProviderAssignedEvent } from "../../common/events/domain-events";
 import { RequestService } from "../request/request.service";
 import { ProviderService } from "../provider/provider.service";
 import { TrackingService } from "./tracking.service";
@@ -113,6 +115,23 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
       });
     }
     return { accepted: true };
+  }
+
+  // Ch71's mobile Customer app Matching screen — MatchingService emits these
+  // as plain in-process domain events (ADR 0009, no import from MatchingModule
+  // needed since EventEmitterModule.forRoot() is global); this gateway is the
+  // one place they cross over into a real Socket.IO push, onto the same
+  // room-per-request fan-out `location:update` already uses.
+  @OnEvent(DomainEvents.ProviderAssigned)
+  handleProviderAssigned(event: ProviderAssignedEvent) {
+    this.server.to(`service-request:${event.serviceRequestId}`).emit("request:matched", {
+      assignmentId: event.assignmentId,
+    });
+  }
+
+  @OnEvent(DomainEvents.MatchingFailed)
+  handleMatchingFailed(event: MatchingFailedEvent) {
+    this.server.to(`service-request:${event.serviceRequestId}`).emit("request:matching-failed", {});
   }
 
   @SubscribeMessage("presence:heartbeat")

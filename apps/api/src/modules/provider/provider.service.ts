@@ -3,9 +3,15 @@ import { ConfigService } from "@nestjs/config";
 import {
   PresenceStatus as PrismaPresenceStatus,
   ProviderVerificationStatus as PrismaVerificationStatus,
+  TrustSnapshotReason as PrismaTrustSnapshotReason,
   VerificationDocumentStatus as PrismaDocumentStatus,
 } from "@prisma/client";
-import { PresenceStatus, ProviderVerificationStatus, VerificationDocumentType } from "@motiq/types";
+import {
+  PresenceStatus,
+  ProviderVerificationStatus,
+  TrustSnapshotReason,
+  VerificationDocumentType,
+} from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import {
   assertValidVerificationTransition,
@@ -207,6 +213,19 @@ export class ProviderService {
    * throwing — a missing ETA is a normal, expected transient state on a live
    * tracking feed, not an error.
    */
+  /** Ch32's routing feature needs the provider's actual coordinates (not
+   * just a distance) to ask a routing engine for a real road path — mirrors
+   * RequestService.getPickupLocation()'s same PostGIS-Unsupported-column
+   * read-back pattern. Null if the provider has never reported a location. */
+  async getCurrentLocation(providerProfileId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const rows = await this.prisma.$queryRaw<{ latitude: number; longitude: number }[]>`
+      SELECT ST_Y("currentLocation"::geometry) AS latitude, ST_X("currentLocation"::geometry) AS longitude
+      FROM provider_profiles
+      WHERE id = ${providerProfileId} AND "currentLocation" IS NOT NULL
+    `;
+    return rows[0] ?? null;
+  }
+
   async getDistanceToServiceRequestPickup(
     providerProfileId: string,
     serviceRequestId: string,
@@ -250,6 +269,25 @@ export class ProviderService {
       orderBy: { submittedAt: "asc" },
     });
     return documents.map((document) => ({ ...document, fileUrl: this.decryptFileUrl(document.fileUrl) }));
+  }
+
+  /** The trust-score ML training-data export — see recomputeTrustScore()'s
+   * doc comment. Cursor-paginated, same convention as every other list
+   * endpoint (docs/api-conventions.md). */
+  async listTrustSnapshots(params: { cursor?: string; limit?: number }) {
+    const limit = Math.min(params.limit ?? 25, 100);
+    const snapshots = await this.prisma.providerTrustSnapshot.findMany({
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: "desc" },
+    });
+
+    const hasMore = snapshots.length > limit;
+    const page = hasMore ? snapshots.slice(0, limit) : snapshots;
+    return {
+      data: page,
+      pagination: { nextCursor: hasMore ? page[page.length - 1].id : null, limit },
+    };
   }
 
   private encryptFileUrl(fileUrl: string): string {
@@ -320,21 +358,39 @@ export class ProviderService {
       },
     });
 
-    return this.recomputeTrustScore(providerProfileId);
+    return this.recomputeTrustScore(providerProfileId, TrustSnapshotReason.VERIFICATION_TRANSITION);
   }
 
-  /** Ch58 — recomputed after any change to rating, job count, or verification tier. */
-  async recomputeTrustScore(providerProfileId: string) {
+  /**
+   * Ch58 — recomputed after any change to rating, job count, or verification
+   * tier; the only two call sites are this method's own caller above and
+   * RatingService.submit(). trustScore has no history of its own, so every
+   * recompute also writes a ProviderTrustSnapshot row — the training data a
+   * future ML trust-score model would learn from (see the ML roadmap). This
+   * is the single choke point for that write; never duplicated elsewhere.
+   */
+  async recomputeTrustScore(providerProfileId: string, reason: TrustSnapshotReason) {
     const provider = await this.findById(providerProfileId);
     const trustScore = calculateTrustScore({
       ratingAverage: provider.ratingAverage,
       completedJobCount: provider.completedJobCount,
       verificationStatus: provider.verificationStatus as unknown as ProviderVerificationStatus,
     });
-    return this.prisma.providerProfile.update({
+    const updated = await this.prisma.providerProfile.update({
       where: { id: providerProfileId },
       data: { trustScore },
     });
+    await this.prisma.providerTrustSnapshot.create({
+      data: {
+        providerProfileId,
+        ratingAverage: updated.ratingAverage,
+        completedJobCount: updated.completedJobCount,
+        verificationStatus: updated.verificationStatus,
+        trustScore: updated.trustScore,
+        reason: reason as unknown as PrismaTrustSnapshotReason,
+      },
+    });
+    return updated;
   }
 
   /**

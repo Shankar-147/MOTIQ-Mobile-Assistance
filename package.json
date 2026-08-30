@@ -10,9 +10,11 @@
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "prettier": "^3.3.3",
     "typescript": "^5.5.4"
   },

@@ -21,8 +21,15 @@ import { RequestStatus } from "@motiq/types";
  *   point before service actually starts; SERVICE_IN_PROGRESS can only end in
  *   COMPLETED or FAILED, since a job that has already started isn't cleanly
  *   "cancelled" — that's a Ch135 (Failure-Path UX) / Ch57 (refund) concern.
- * - Every other terminal state (COMPLETED, CANCELLED_*, EXPIRED, FAILED) has
- *   no outgoing transitions — a completed or cancelled request never reopens.
+ * - Every other terminal state (COMPLETED, CANCELLED_*, FAILED) has no
+ *   outgoing transitions — a completed or cancelled request never reopens.
+ *   EXPIRED is the one deliberate exception: Ch61's admin manual dispatch
+ *   override (MatchingService.adminOverrideDispatch) can hand-assign a
+ *   provider to a request that automated matching gave up on — an admin's
+ *   explicit decision, not automated matching reopening itself. MATCHING can
+ *   reach PROVIDER_ACCEPTED the same way, skipping the ASSIGNED "offer
+ *   pending" step entirely, since an admin override is immediately binding —
+ *   there's no provider response phase to wait through.
  */
 const ALLOWED_TRANSITIONS: Record<RequestStatus, ReadonlySet<RequestStatus>> = {
   [RequestStatus.REQUESTED]: new Set([
@@ -32,6 +39,7 @@ const ALLOWED_TRANSITIONS: Record<RequestStatus, ReadonlySet<RequestStatus>> = {
   ]),
   [RequestStatus.MATCHING]: new Set([
     RequestStatus.ASSIGNED,
+    RequestStatus.PROVIDER_ACCEPTED, // admin manual dispatch override
     RequestStatus.EXPIRED,
     RequestStatus.CANCELLED_BY_CUSTOMER,
     RequestStatus.FAILED,
@@ -60,7 +68,7 @@ const ALLOWED_TRANSITIONS: Record<RequestStatus, ReadonlySet<RequestStatus>> = {
   [RequestStatus.COMPLETED]: new Set([]),
   [RequestStatus.CANCELLED_BY_CUSTOMER]: new Set([]),
   [RequestStatus.CANCELLED_BY_PROVIDER]: new Set([]),
-  [RequestStatus.EXPIRED]: new Set([]),
+  [RequestStatus.EXPIRED]: new Set([RequestStatus.PROVIDER_ACCEPTED]), // admin manual dispatch override only
   [RequestStatus.FAILED]: new Set([]),
 };
 

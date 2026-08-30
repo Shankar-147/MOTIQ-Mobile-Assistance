@@ -61,6 +61,9 @@ export enum AssignmentStatus {
   ACCEPTED = "ACCEPTED",
   REJECTED = "REJECTED",
   TIMED_OUT = "TIMED_OUT",
+  /** Ch61's admin manual dispatch override superseded this OFFERED
+   * assignment with a hand-picked provider. */
+  SUPERSEDED = "SUPERSEDED",
 }
 
 /** Ch7 §7.6.2 — the four-phase cold-start playbook. */
@@ -128,4 +131,37 @@ export enum SosAlertStatus {
   ACKNOWLEDGED = "ACKNOWLEDGED",
   RESOLVED = "RESOLVED",
   FALSE_ALARM = "FALSE_ALARM",
+}
+
+/** Why a ProviderTrustSnapshot row was written — the two (and only two)
+ * events that ever change ProviderProfile.trustScore. */
+export enum TrustSnapshotReason {
+  RATING_SUBMITTED = "RATING_SUBMITTED",
+  VERIFICATION_TRANSITION = "VERIFICATION_TRANSITION",
+}
+
+/** Preventive-maintenance service categories a customer can log against a Vehicle. */
+export enum MaintenanceServiceType {
+  OIL_CHANGE = "OIL_CHANGE",
+  TIRE_ROTATION = "TIRE_ROTATION",
+  BRAKE_SERVICE = "BRAKE_SERVICE",
+  BATTERY_CHECK = "BATTERY_CHECK",
+  GENERAL_SERVICE = "GENERAL_SERVICE",
+  ENGINE_CHECK = "ENGINE_CHECK",
+  COOLANT_CHECK = "COOLANT_CHECK",
+  AIR_FILTER = "AIR_FILTER",
+  LIGHTS_CHECK = "LIGHTS_CHECK",
+  OVERALL_HEALTH_CHECK = "OVERALL_HEALTH_CHECK",
+  OTHER = "OTHER",
+}
+
+/** A vehicle's due-status for one MaintenanceServiceType, derived from its
+ * service history against MaintenanceIntervalRule — computed on read for
+ * display, but also persisted in VehicleMaintenanceReminderLog as a
+ * point-in-time dedup record for the reminder scheduler. */
+export enum MaintenanceDueStatus {
+  NOT_TRACKED = "NOT_TRACKED",
+  OK = "OK",
+  DUE_SOON = "DUE_SOON",
+  OVERDUE = "OVERDUE",
 }

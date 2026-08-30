@@ -26,4 +26,11 @@ export const providerApi = {
     apiClient.post("/providers/me/verification-documents", { documentType, fileUrl }),
 
   listVerificationDocuments: () => apiClient.get("/providers/me/verification-documents"),
+
+  /** Ch72's mobile Provider app earnings screen. */
+  getEarnings: () => apiClient.get("/providers/me/earnings"),
+
+  /** Ch72's mobile Provider app rating-history screen — cursor-paginated. */
+  listOwnRatings: (params?: { cursor?: string; limit?: number }) =>
+    apiClient.get("/providers/me/ratings", { params }),
 };

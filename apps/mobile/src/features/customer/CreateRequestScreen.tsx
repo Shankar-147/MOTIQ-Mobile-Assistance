@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
 import * as Location from "expo-location";
-import { LifeBuoy, MapPinned } from "lucide-react-native";
+import { Car, LifeBuoy } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { IssueType } from "@motiq/types";
+import { IssueType, VehicleDto } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
 import { consentApi } from "../../api/consentApi";
-import { serviceAreaApi } from "../../api/serviceAreaApi";
+import { vehicleApi } from "../../api/vehicleApi";
 import { enqueueServiceRequest } from "../../api/offlineQueue";
 import { useConnectivityStore } from "../../store/connectivityStore";
 import { A11Y_LABELS } from "../../accessibility/a11y";
@@ -18,30 +18,25 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "CreateRequest">;
 
 const ISSUE_TYPES = Object.values(IssueType);
 
-interface ServiceAreaOption {
-  id: string;
-  name: string;
-}
-
-export function CreateRequestScreen({ navigation }: Props) {
-  const [serviceAreas, setServiceAreas] = useState<ServiceAreaOption[]>([]);
-  const [serviceAreaId, setServiceAreaId] = useState("");
+/** Ch71's mobile Customer app request-creation screen. Previously let the
+ * customer hand-pick a "service area" from a chip list, which became the
+ * request's authoritative city — exactly the client-trust gap CLAUDE.md rule
+ * 8 flags. The backend now derives the service area from `pickupLocation`
+ * itself (ServiceAreaService.resolveForPoint), so there's nothing left for
+ * this screen to ask the customer to pick. */
+export function CreateRequestScreen({ route, navigation }: Props) {
   const [issueType, setIssueType] = useState<IssueType>(IssueType.OTHER);
   const [description, setDescription] = useState("");
+  const [vehicles, setVehicles] = useState<VehicleDto[]>([]);
+  const [vehicleId, setVehicleId] = useState<string | undefined>(route.params?.vehicleId);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const isConnected = useConnectivityStore((state) => state.isConnected);
 
   useEffect(() => {
-    serviceAreaApi
-      .list()
-      .then((response) => {
-        const areas = response.data as ServiceAreaOption[];
-        setServiceAreas(areas);
-        if (areas.length > 0) {
-          setServiceAreaId((current) => current || areas[0].id);
-        }
-      })
+    vehicleApi
+      .listMine()
+      .then((response) => setVehicles((response.data as { data: VehicleDto[] }).data))
       .catch(() => undefined);
   }, []);
 
@@ -54,15 +49,21 @@ export function CreateRequestScreen({ navigation }: Props) {
         setStatus("Location permission is required to request assistance.");
         return;
       }
-      const position = await Location.getCurrentPositionAsync({});
+      // See GoOnlineScreen.tsx's identical comment: BestForNavigation forces
+      // the GPS provider path, which is what reliably resolves on at least
+      // one dev Android emulator config where the default Balanced accuracy
+      // hung/rejected indefinitely.
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
       const dto = {
-        serviceAreaId,
         issueType,
         pickupLocation: {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         },
         description: description || undefined,
+        vehicleId,
       };
 
       if (!isConnected) {
@@ -80,15 +81,15 @@ export function CreateRequestScreen({ navigation }: Props) {
       await consentApi.grantLocationTracking();
       const response = await requestApi.create(dto);
       const created = response.data as { id: string };
-      navigation.navigate("TrackRequest", { serviceRequestId: created.id });
+      navigation.navigate("Matching", { serviceRequestId: created.id });
     } catch {
       // A live-but-failing request (server error, not offline) still queues
       // locally rather than losing the attempt.
       await enqueueServiceRequest({
-        serviceAreaId,
         issueType,
         pickupLocation: { latitude: 0, longitude: 0 },
         description: description || undefined,
+        vehicleId,
       });
       setStatus("Couldn't reach MOTIQ right now — your request is saved and will retry automatically.");
     } finally {
@@ -131,29 +132,33 @@ export function CreateRequestScreen({ navigation }: Props) {
           </HStack>
         </VStack>
 
-        <VStack space="xs">
-          <HStack alignItems="center" space="xs">
-            <MapPinned size={14} color="#64748B" />
-            <Text size="sm" color="$textLight500" fontWeight="$semibold">
-              Service area
-            </Text>
-          </HStack>
-          {serviceAreas.length > 0 ? (
+        {vehicles.length > 0 ? (
+          <VStack space="xs">
+            <HStack alignItems="center" space="xs">
+              <Car size={14} color="#64748B" />
+              <Text size="sm" color="$textLight500" fontWeight="$semibold">
+                Vehicle (optional)
+              </Text>
+            </HStack>
             <HStack flexWrap="wrap" gap="$2">
-              {serviceAreas.map((area) => (
+              <Chip
+                label="Not specified"
+                selected={!vehicleId}
+                accessibilityLabel="No vehicle specified"
+                onPress={() => setVehicleId(undefined)}
+              />
+              {vehicles.map((vehicle) => (
                 <Chip
-                  key={area.id}
-                  label={area.name}
-                  selected={serviceAreaId === area.id}
-                  accessibilityLabel={`Service area: ${area.name}`}
-                  onPress={() => setServiceAreaId(area.id)}
+                  key={vehicle.id}
+                  label={`${vehicle.make} ${vehicle.model}`}
+                  selected={vehicleId === vehicle.id}
+                  accessibilityLabel={`Vehicle: ${vehicle.make} ${vehicle.model}`}
+                  onPress={() => setVehicleId(vehicle.id)}
                 />
               ))}
             </HStack>
-          ) : (
-            <Text color="$textLight500">Loading service areas…</Text>
-          )}
-        </VStack>
+          </VStack>
+        ) : null}
 
         <Input
           label="Description (optional)"
@@ -174,7 +179,7 @@ export function CreateRequestScreen({ navigation }: Props) {
           variant="danger"
           icon={LifeBuoy}
           accessibilityLabel={A11Y_LABELS.createRequestButton}
-          disabled={submitting || !serviceAreaId}
+          disabled={submitting}
           loading={submitting}
           onPress={handleSubmit}
         />

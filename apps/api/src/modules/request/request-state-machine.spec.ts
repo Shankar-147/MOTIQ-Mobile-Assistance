@@ -42,16 +42,29 @@ describe("ServiceRequest state machine (Ch19, ADR 0004)", () => {
     ).toThrow(InvalidStateTransitionException);
   });
 
-  it("treats every terminal state as having no outgoing transitions", () => {
+  it("treats every truly-terminal state as having no outgoing transitions", () => {
     const terminalStates: RequestStatus[] = [
       RequestStatus.COMPLETED,
       RequestStatus.CANCELLED_BY_CUSTOMER,
       RequestStatus.CANCELLED_BY_PROVIDER,
-      RequestStatus.EXPIRED,
       RequestStatus.FAILED,
     ];
     for (const status of terminalStates) {
       expect(isTerminalStatus(status)).toBe(true);
     }
+  });
+
+  it("allows an admin manual dispatch override to reopen an EXPIRED request (Ch61)", () => {
+    expect(isTerminalStatus(RequestStatus.EXPIRED)).toBe(false);
+    expect(() => assertValidTransition(RequestStatus.EXPIRED, RequestStatus.PROVIDER_ACCEPTED)).not.toThrow();
+    // Still rejects every other attempted transition out of EXPIRED — the
+    // override is the one deliberate exception, not a general reopening.
+    expect(() => assertValidTransition(RequestStatus.EXPIRED, RequestStatus.MATCHING)).toThrow(
+      InvalidStateTransitionException,
+    );
+  });
+
+  it("allows an admin manual dispatch override to skip straight from MATCHING to PROVIDER_ACCEPTED", () => {
+    expect(() => assertValidTransition(RequestStatus.MATCHING, RequestStatus.PROVIDER_ACCEPTED)).not.toThrow();
   });
 });
