@@ -4,6 +4,7 @@ import { DevicePlatform, NotificationChannel, NotificationDeliveryTier } from "@
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { SMS_GATEWAY, SmsGatewayPort } from "./gateways/sms-gateway.port";
 import { PUSH_GATEWAY, PushGatewayPort } from "./gateways/push-gateway.port";
+import { EMAIL_GATEWAY, EmailGatewayPort } from "./gateways/email-gateway.port";
 import { isSuppressedByPreference, NotificationPreferenceLike } from "./notification-preference.util";
 
 const DEFAULT_PREFERENCE: NotificationPreferenceLike = {
@@ -30,6 +31,7 @@ export class NotificationService {
     private readonly prisma: PrismaService,
     @Inject(SMS_GATEWAY) private readonly smsGateway: SmsGatewayPort,
     @Inject(PUSH_GATEWAY) private readonly pushGateway: PushGatewayPort,
+    @Inject(EMAIL_GATEWAY) private readonly emailGateway: EmailGatewayPort,
   ) {}
 
   async send(params: {
@@ -94,6 +96,29 @@ export class NotificationService {
       // gateway's send fails (e.g. India's DLT template requirement rejecting
       // trial-account SMS). Same dev safety net, one more trigger condition.
       this.logger.log(`[DEV ONLY — SMS send failed, Ch32] OTP for ${phone}: ${code} (expires in ${ttlSeconds}s)`);
+    }
+  }
+
+  /**
+   * Email-delivered OTP (Ch50 stays phone-first for identity — this only
+   * changes the delivery channel of the code itself, since Twilio's trial
+   * account rejects custom SMS templates in this environment). Same
+   * "security path, not a general notification" discipline as sendOtpSms:
+   * never preference-gated, always attempted, dev-log fallback if unconfigured
+   * or if the send fails.
+   */
+  async sendOtpEmail(email: string, code: string, ttlSeconds: number): Promise<void> {
+    const subject = "Your MOTIQ verification code";
+    const body = `Your MOTIQ verification code is ${code}. It expires in ${Math.round(ttlSeconds / 60)} minutes.`;
+    if (!this.emailGateway.isConfigured()) {
+      this.logger.log(`[DEV ONLY — no email provider wired, Ch32] OTP for ${email}: ${code} (expires in ${ttlSeconds}s)`);
+      return;
+    }
+    try {
+      await this.emailGateway.sendEmail({ to: email, subject, body });
+    } catch (error) {
+      this.logger.error(`Email OTP send to ${email} failed: ${(error as Error).message}`);
+      this.logger.log(`[DEV ONLY — email send failed, Ch32] OTP for ${email}: ${code} (expires in ${ttlSeconds}s)`);
     }
   }
 

@@ -28,7 +28,8 @@ describe("NotificationService.send (push data payload forwarding)", () => {
       isConfigured: jest.fn().mockReturnValue(true),
       sendPush: jest.fn().mockResolvedValue(undefined),
     };
-    const service = new NotificationService(prisma as never, smsGateway as never, pushGateway as never);
+    const emailGateway = { isConfigured: jest.fn().mockReturnValue(false) };
+    const service = new NotificationService(prisma as never, smsGateway as never, pushGateway as never, emailGateway as never);
     return { service, pushGateway };
   }
 

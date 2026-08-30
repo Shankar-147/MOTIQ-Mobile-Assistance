@@ -116,6 +116,9 @@ export interface ApiErrorEnvelope {
  */
 export interface RequestOtpRequest {
   phone: string;
+  // OTP delivery channel (phone stays the account identity) — see
+  // apps/api's RequestOtpDto doc comment.
+  email: string;
 }
 
 export interface VerifyOtpRequest {
