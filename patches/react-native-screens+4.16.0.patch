@@ -2,7 +2,14 @@ diff --git a/node_modules/react-native-screens/android/build.gradle b/node_modul
 index 114be81..db410d1 100644
 --- a/node_modules/react-native-screens/android/build.gradle
 +++ b/node_modules/react-native-screens/android/build.gradle
-@@ -138,6 +138,10 @@ android {
+@@ -1,5 +1,6 @@
+ import com.android.Version
+ import groovy.json.JsonSlurper
++import org.apache.tools.ant.taskdefs.condition.Os
+
+ buildscript {
+     ext {
+@@ -138,6 +139,10 @@ android {
          externalNativeBuild {
              cmake {
                  arguments "-DANDROID_STL=c++_shared",
@@ -13,7 +20,7 @@ index 114be81..db410d1 100644
                          "-DRNS_NEW_ARCH_ENABLED=${IS_NEW_ARCHITECTURE_ENABLED}",
                          "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
              }
-@@ -150,6 +154,11 @@ android {
+@@ -150,6 +155,15 @@ android {
      externalNativeBuild {
          cmake {
              path "CMakeLists.txt"
@@ -21,7 +28,11 @@ index 114be81..db410d1 100644
 +            // build.gradle comment; old ninja 1.10.2 (bundled with CMake
 +            // 3.22.1) has Windows path-handling bugs that were silently
 +            // dropping libc++_shared linker args on this machine.
-+            version "3.31.6"
++            // Windows-only: EAS Build's Linux images don't have 3.31.6 in
++            // their SDK component cache, and Linux's ninja doesn't have this bug.
++            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
++              version "3.31.6"
++            }
          }
      }
      lintOptions {

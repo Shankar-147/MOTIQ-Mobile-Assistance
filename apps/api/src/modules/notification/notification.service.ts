@@ -5,6 +5,7 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { SMS_GATEWAY, SmsGatewayPort } from "./gateways/sms-gateway.port";
 import { PUSH_GATEWAY, PushGatewayPort } from "./gateways/push-gateway.port";
 import { EMAIL_GATEWAY, EmailGatewayPort } from "./gateways/email-gateway.port";
+import { buildOtpEmailHtml } from "./templates/otp-email.template";
 import { isSuppressedByPreference, NotificationPreferenceLike } from "./notification-preference.util";
 
 const DEFAULT_PREFERENCE: NotificationPreferenceLike = {
@@ -115,7 +116,7 @@ export class NotificationService {
       return;
     }
     try {
-      await this.emailGateway.sendEmail({ to: email, subject, body });
+      await this.emailGateway.sendEmail({ to: email, subject, body, html: buildOtpEmailHtml(code, ttlSeconds) });
     } catch (error) {
       this.logger.error(`Email OTP send to ${email} failed: ${(error as Error).message}`);
       this.logger.log(`[DEV ONLY — email send failed, Ch32] OTP for ${email}: ${code} (expires in ${ttlSeconds}s)`);
