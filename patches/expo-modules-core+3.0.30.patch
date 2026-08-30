@@ -1,8 +1,16 @@
 diff --git a/node_modules/expo-modules-core/android/build.gradle b/node_modules/expo-modules-core/android/build.gradle
-index 80cee5d..cd56e8c 100644
+index 80cee5d..1a2b3c4 100644
 --- a/node_modules/expo-modules-core/android/build.gradle
 +++ b/node_modules/expo-modules-core/android/build.gradle
-@@ -89,6 +89,10 @@ android {
+@@ -2,6 +2,7 @@
+ import expo.modules.plugin.gradle.ExpoModuleExtension
+ import groovy.json.JsonSlurper
+ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
++import org.apache.tools.ant.taskdefs.condition.Os
+
+ buildscript {
+   // List of features that are required by linked modules
+@@ -89,6 +90,10 @@ android {
        cmake {
          abiFilters(*reactNativeArchitectures())
          arguments "-DANDROID_STL=c++_shared",
@@ -13,7 +21,7 @@ index 80cee5d..cd56e8c 100644
            "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
            "-DREACT_NATIVE_DIR=${expoModuleExtension.reactNativeDir}",
            "-DREACT_NATIVE_TARGET_VERSION=${expoModuleExtension.reactNativeVersion.minor}",
-@@ -102,6 +106,13 @@ android {
+@@ -102,6 +107,18 @@ android {
    externalNativeBuild {
      cmake {
        path "CMakeLists.txt"
@@ -23,7 +31,12 @@ index 80cee5d..cd56e8c 100644
 +      // silently dropping linker args (libc++_shared symbols) on this build.
 +      // See docs.swmansion.com/react-native-reanimated/docs/guides/building-on-windows
 +      // ("Ninja: Requires 1.12.0+, older versions have path-handling issues").
-+      version "3.31.6"
++      // Windows-only: EAS Build's Linux images don't have 3.31.6 in their SDK
++      // component cache ([CXX1300] CMake not found), and Linux's ninja doesn't
++      // have this bug, so there's nothing to work around there.
++      if (Os.isFamily(Os.FAMILY_WINDOWS)) {
++        version "3.31.6"
++      }
      }
    }
- 
+

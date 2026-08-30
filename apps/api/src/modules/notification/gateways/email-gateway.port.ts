@@ -7,7 +7,7 @@
 export interface EmailGatewayPort {
   /** False when no SMTP credentials are configured — see the adapter's constructor. */
   isConfigured(): boolean;
-  sendEmail(params: { to: string; subject: string; body: string }): Promise<void>;
+  sendEmail(params: { to: string; subject: string; body: string; html?: string }): Promise<void>;
 }
 
 export const EMAIL_GATEWAY = Symbol("EMAIL_GATEWAY");

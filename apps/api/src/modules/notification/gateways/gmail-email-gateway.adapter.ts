@@ -39,15 +39,16 @@ export class GmailEmailGatewayAdapter implements EmailGatewayPort {
     return this.transporter !== null;
   }
 
-  async sendEmail(params: { to: string; subject: string; body: string }): Promise<void> {
+  async sendEmail(params: { to: string; subject: string; body: string; html?: string }): Promise<void> {
     if (!this.transporter || !this.fromAddress) {
       throw new Error("GmailEmailGatewayAdapter is not configured — check isConfigured() first.");
     }
     await this.transporter.sendMail({
-      from: this.fromAddress,
+      from: `MOTIQ <${this.fromAddress}>`,
       to: params.to,
       subject: params.subject,
       text: params.body,
+      html: params.html,
     });
   }
 }
