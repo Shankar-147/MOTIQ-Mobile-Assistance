@@ -17,6 +17,7 @@ import { AdminLoginDto } from "./dto/admin-login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { JwtPayload } from "./jwt-payload.interface";
 import { generateOtpCode, hashOtpCode, verifyOtpCode } from "./otp.util";
+import { normalizePhone } from "./phone.util";
 import { generateOpaqueToken, hashToken } from "./token.util";
 import { comparePassword } from "./password.util";
 import { NotificationService } from "../../notification/notification.service";
@@ -41,23 +42,22 @@ export class AuthService {
   ) {}
 
   async requestOtp(dto: RequestOtpDto): Promise<void> {
+    const phone = normalizePhone(dto.phone);
     const recentChallenge = await this.prisma.otpChallenge.findFirst({
       where: {
-        phone: dto.phone,
+        phone,
         createdAt: { gt: new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000) },
       },
       orderBy: { createdAt: "desc" },
     });
     if (recentChallenge) {
-      throw new ConflictException(
-        `Please wait before requesting another code for ${dto.phone}.`,
-      );
+      throw new ConflictException(`Please wait before requesting another code for ${phone}.`);
     }
 
     const code = generateOtpCode();
     await this.prisma.otpChallenge.create({
       data: {
-        phone: dto.phone,
+        phone,
         codeHash: hashOtpCode(code),
         expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000),
       },
@@ -66,17 +66,18 @@ export class AuthService {
     // Real Twilio delivery as of Phase 5 (ADR 0017) — degrades to a logged
     // fallback when TWILIO_* isn't configured, same as every other
     // unconfigured third-party adapter in this codebase.
-    await this.notifications.sendOtpSms(dto.phone, code, OTP_TTL_SECONDS);
+    await this.notifications.sendOtpSms(phone, code, OTP_TTL_SECONDS);
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<TokenPairResponse> {
+    const phone = normalizePhone(dto.phone);
     const challenge = await this.prisma.otpChallenge.findFirst({
-      where: { phone: dto.phone, consumedAt: null },
+      where: { phone, consumedAt: null },
       orderBy: { createdAt: "desc" },
     });
 
     if (!challenge) {
-      throw new BadRequestException(`No active code for ${dto.phone}. Request a new one.`);
+      throw new BadRequestException(`No active code for ${phone}. Request a new one.`);
     }
     if (challenge.expiresAt < new Date()) {
       throw new BadRequestException("That code has expired. Request a new one.");
@@ -93,7 +94,7 @@ export class AuthService {
     }
 
     const existingUser = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
+      where: { phone },
       include: { customerProfile: true, providerProfile: true },
     });
 
@@ -106,7 +107,7 @@ export class AuthService {
         // Should be structurally impossible (every CUSTOMER/PROVIDER User has
         // exactly one matching profile, created together in registerViaOtp) —
         // treated as a data-integrity fault, not a normal auth failure.
-        throw new BadRequestException(`Account for ${dto.phone} is missing its profile.`);
+        throw new BadRequestException(`Account for ${phone} is missing its profile.`);
       }
       await this.consumeChallenge(challenge.id);
       return this.issueTokenPair(existingUser.id, existingUser.role as unknown as UserRole, profileId);
@@ -119,7 +120,7 @@ export class AuthService {
     // the user to request an entirely new code just to retry the same code.
     await this.assertRegistrationInputValid(dto);
     await this.consumeChallenge(challenge.id);
-    return this.registerViaOtp(dto);
+    return this.registerViaOtp(dto, phone);
   }
 
   private async consumeChallenge(challengeId: string): Promise<void> {
@@ -273,7 +274,7 @@ export class AuthService {
     return this.issueTokenPair(user.id, user.role as unknown as UserRole, profileId);
   }
 
-  private async registerViaOtp(dto: VerifyOtpDto): Promise<TokenPairResponse> {
+  private async registerViaOtp(dto: VerifyOtpDto, phone: string): Promise<TokenPairResponse> {
     // Defense-in-depth: verifyOtp() already calls this before consuming the
     // challenge, but this method is only ever reached via that path.
     await this.assertRegistrationInputValid(dto);
@@ -281,7 +282,7 @@ export class AuthService {
     if (dto.role === UserRole.CUSTOMER) {
       const { user, profile } = await this.prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
-          data: { phone: dto.phone, role: PrismaUserRole.CUSTOMER },
+          data: { phone, role: PrismaUserRole.CUSTOMER },
         });
         const createdProfile = await tx.customerProfile.create({
           data: { userId: createdUser.id, displayName: dto.displayName! },
@@ -294,7 +295,7 @@ export class AuthService {
     // PROVIDER registration
     const { user, profile } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
-        data: { phone: dto.phone, role: PrismaUserRole.PROVIDER },
+        data: { phone, role: PrismaUserRole.PROVIDER },
       });
       const createdProfile = await tx.providerProfile.create({
         data: {
