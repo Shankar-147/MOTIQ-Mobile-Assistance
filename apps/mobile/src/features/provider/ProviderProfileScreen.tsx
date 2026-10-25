@@ -159,9 +159,8 @@ export function ProviderProfileScreen({ navigation }: Props) {
           ) : (
             fleetVehicles.map((vehicle) => (
               <Card key={vehicle.id}>
-                <HStack alignItems="center" justifyContent="space-between">
+                <VStack space="sm">
                   <Pressable
-                    flex={1}
                     accessibilityRole="button"
                     accessibilityLabel={`Edit ${vehicle.make} ${vehicle.model}`}
                     onPress={() => navigation.navigate("AddFleetVehicle", { vehicleId: vehicle.id })}
@@ -175,6 +174,9 @@ export function ProviderProfileScreen({ navigation }: Props) {
                       </Text>
                     </VStack>
                   </Pressable>
+                  {/* Below, not beside, the vehicle info — same fix as
+                      CustomerProfileScreen's vehicle card (mid-word wrap
+                      on a narrow text column next to the action button). */}
                   <Button
                     label="Remove"
                     variant="danger"
@@ -185,7 +187,7 @@ export function ProviderProfileScreen({ navigation }: Props) {
                     loading={deletingVehicleId === vehicle.id}
                     onPress={() => handleDeleteFleetVehicle(vehicle.id)}
                   />
-                </HStack>
+                </VStack>
               </Card>
             ))
           )}

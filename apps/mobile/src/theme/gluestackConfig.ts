@@ -34,5 +34,18 @@ export const motiqConfig = {
       ...defaultConfig.tokens.colors,
       ...motiqPrimary,
     },
+    // Sora/Plus Jakarta Sans were loaded at the app root (App.tsx) for the
+    // Provider Home redesign, but gluestack's own `$heading`/`$body` font
+    // tokens default to undefined (platform system font) — so every
+    // <Heading>/<Text>/<ButtonText> across the rest of the app (everything
+    // that hadn't individually opted in via theme/colors.ts's FONTS) was
+    // still rendering in the system font. Setting the tokens here, once,
+    // applies the same typography everywhere gluestack components are used,
+    // instead of patching each screen individually.
+    fonts: {
+      ...defaultConfig.tokens.fonts,
+      heading: "Sora_700Bold",
+      body: "PlusJakartaSans_500Medium",
+    },
   },
 };

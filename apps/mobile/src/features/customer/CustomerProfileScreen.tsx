@@ -135,9 +135,8 @@ export function CustomerProfileScreen({ navigation }: Props) {
           ) : (
             vehicles.map((vehicle) => (
               <Card key={vehicle.id}>
-                <HStack alignItems="center" justifyContent="space-between">
+                <VStack space="sm">
                   <Pressable
-                    flex={1}
                     accessibilityRole="button"
                     accessibilityLabel={`${A11Y_LABELS.viewVehicleHealthButton}: ${vehicle.make} ${vehicle.model}`}
                     onPress={() => navigation.navigate("VehicleHealth", { vehicleId: vehicle.id })}
@@ -152,6 +151,11 @@ export function CustomerProfileScreen({ navigation }: Props) {
                       </Text>
                     </VStack>
                   </Pressable>
+                  {/* Below the vehicle info, not beside it (ADR-free layout
+                      fix, Ch132/Ch138 responsive requirement) — two labeled
+                      buttons sharing a row with the info text squeezed its
+                      column too narrow on real phone widths, wrapping
+                      "Datsun Go Plus" mid-word. */}
                   <HStack space="xs">
                     <Button
                       label="Edit"
@@ -172,7 +176,7 @@ export function CustomerProfileScreen({ navigation }: Props) {
                       onPress={() => handleDeleteVehicle(vehicle.id)}
                     />
                   </HStack>
-                </HStack>
+                </VStack>
               </Card>
             ))
           )}
