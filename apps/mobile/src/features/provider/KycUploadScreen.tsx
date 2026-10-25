@@ -90,12 +90,9 @@ export function KycUploadScreen(_props: Props) {
 
   return (
     <KeyboardScreen contentContainerStyle={{ gap: 20 }}>
-      <View style={{ gap: 4 }}>
-        <Text style={{ fontFamily: FONTS.display, fontSize: 26, color: COLORS.text }}>Verification documents</Text>
-        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary }}>
-          Submit KYC documents to reach full verification.
-        </Text>
-      </View>
+      <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary }}>
+        Submit KYC documents to reach full verification.
+      </Text>
 
       <View style={{ gap: 10 }}>
         <Text style={sectionTitle}>Document type</Text>
