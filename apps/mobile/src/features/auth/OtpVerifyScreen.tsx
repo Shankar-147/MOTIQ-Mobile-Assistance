@@ -8,6 +8,7 @@ import { AuthStackParamList } from "../../navigation/types";
 import { authApi } from "../../api/authApi";
 import { serviceAreaApi } from "../../api/serviceAreaApi";
 import { useAuthStore } from "../../store/authStore";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Button, Chip, Input } from "../../components/ui";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "OtpVerify">;
@@ -93,7 +94,8 @@ export function OtpVerifyScreen({ route }: Props) {
   }
 
   return (
-    <VStack flex={1} bg="$backgroundLight0" p="$6" space="md">
+    <KeyboardScreen>
+      <VStack space="md">
       <Center py="$6">
         <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
           <ShieldCheck size={32} color="#22E58B" />
@@ -147,6 +149,7 @@ export function OtpVerifyScreen({ route }: Props) {
         loading={submitting}
         onPress={handleVerify}
       />
-    </VStack>
+      </VStack>
+    </KeyboardScreen>
   );
 }

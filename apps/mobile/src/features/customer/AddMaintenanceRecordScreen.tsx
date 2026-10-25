@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
+import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Wrench } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MaintenanceServiceType } from "@motiq/types";
@@ -45,7 +46,7 @@ export function AddMaintenanceRecordScreen({ route, navigation }: Props) {
   }
 
   return (
-    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
+    <KeyboardScreen>
       <VStack space="lg">
         <VStack space="xs">
           <Heading size="xl">Add a service record</Heading>
@@ -89,6 +90,6 @@ export function AddMaintenanceRecordScreen({ route, navigation }: Props) {
           onPress={handleSave}
         />
       </VStack>
-    </ScrollView>
+    </KeyboardScreen>
   );
 }

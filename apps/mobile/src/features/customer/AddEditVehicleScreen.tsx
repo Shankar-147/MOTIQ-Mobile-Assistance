@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
+import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Car } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { VehicleDto, VehicleType } from "@motiq/types";
@@ -95,7 +96,7 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
   }
 
   return (
-    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
+    <KeyboardScreen>
       <VStack space="lg">
         <VStack space="xs">
           <Heading size="xl">{vehicleId ? "Edit vehicle" : "Add your vehicle"}</Heading>
@@ -153,6 +154,6 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
           />
         ) : null}
       </VStack>
-    </ScrollView>
+    </KeyboardScreen>
   );
 }

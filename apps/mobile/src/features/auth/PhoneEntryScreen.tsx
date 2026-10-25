@@ -4,6 +4,7 @@ import { Smartphone } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/types";
 import { authApi } from "../../api/authApi";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Button, Input } from "../../components/ui";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "PhoneEntry">;
@@ -29,7 +30,8 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
   }
 
   return (
-    <VStack flex={1} bg="$backgroundLight0" p="$6" space="md">
+    <KeyboardScreen>
+      <VStack space="md">
       <Center py="$6">
         <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
           <Smartphone size={32} color="#22E58B" />
@@ -61,6 +63,7 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
         loading={submitting}
         onPress={handleSubmit}
       />
-    </VStack>
+      </VStack>
+    </KeyboardScreen>
   );
 }
