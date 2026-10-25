@@ -5,6 +5,7 @@ import { UserRole as PrismaUserRole } from "@prisma/client";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { NotificationService } from "../notification/notification.service";
 import { assertValidSosAlertTransition } from "./sos-state-machine";
+import { bucketCountsByDay, DailyCount } from "../../common/metrics/bucket-by-day.util";
 
 const DEFAULT_EMERGENCY_SERVICES_NUMBER = "112"; // India's unified emergency number.
 
@@ -146,6 +147,21 @@ export class SosService {
           payload: { alertId, serviceRequestId: params.serviceRequestId },
         }),
       ),
+    );
+  }
+
+  /** Ch137 admin dashboard metrics — daily SosAlert counts over the
+   * trailing `days`, for AdminService.getMetricsOverview(). */
+  async countAlertsByDay(days: number): Promise<DailyCount[]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const alerts = await this.prisma.sosAlert.findMany({
+      where: { createdAt: { gte: since } },
+      select: { createdAt: true },
+    });
+    return bucketCountsByDay(
+      alerts.map((a) => a.createdAt),
+      since,
+      days,
     );
   }
 }
