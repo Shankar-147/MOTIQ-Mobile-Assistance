@@ -113,11 +113,12 @@ gating, WebSocket tracking, Razorpay checkout, and the persistent SOS button.
    below the fold. Floating SOS top-right.
 2. **Request** (`CreateRequestScreen`): a 3-step sheet (issue → vehicle and
    notes → confirm) with `StepIndicator`. The confirm step shows a summary
-   and a **transparent pricing line** ("₹{baseFare} base + ₹{perKmRate}/km")
-   read from the existing public `GET /service-areas/:id/fare-config`; if
-   that call fails or no config exists it falls back to "Fare is calculated
-   when the job completes". No estimated-total number is shown (no
-   fare-estimate endpoint exists; adding one is out of scope).
+   and the honest line "Final fare is calculated when the job completes —
+   you'll see the full breakdown before you pay." No pricing figure is
+   shown: no fare-estimate endpoint exists, and `fare-config` cannot be
+   used because it needs a service-area id the app no longer knows (the
+   backend derives it from the pickup point). A real estimate is a backend
+   follow-up, out of scope here.
 3. **Matching** (`MatchingScreen`): radar pulse on the map around the
    customer's position, "Finding the nearest provider…", a step indicator,
    and a clear Cancel. Keeps the existing no-provider-found handling.
@@ -129,8 +130,13 @@ gating, WebSocket tracking, Razorpay checkout, and the persistent SOS button.
    `Share`, text only: ETA, provider name, request link text — no new
    backend or native dependency). No call button or plate number: the API
    does not expose provider phone or plate to customers.
-5. **Pay** (`MakePaymentScreen`): total as the hero number, the existing
-   line items, one large Pay button, receipt link.
+5. **Pay** (`RequestDetailScreen` payment card + `MakePaymentScreen`): the
+   payment card on Request Detail shows the total as the hero number, a
+   status badge and one large Pay CTA. `MakePaymentScreen` is Razorpay's
+   hosted checkout inside a WebView, so only the states around it (loading,
+   confirming, failed, done) and the WebView background are restyled; the
+   checkout page itself is Razorpay's. Line items are shown only if the
+   payment data the screen already receives contains them.
 6. **Rate** (`RateProviderScreen`) and **Request detail**
    (`RequestDetailScreen`): large tappable stars, quick tags, optional
    comment (tags are UI sugar folded into the existing comment string — no
