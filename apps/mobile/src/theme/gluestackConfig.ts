@@ -1,29 +1,50 @@
 import { config as defaultConfig } from "@gluestack-ui/config";
 
 /**
- * MOTIQ's brand palette, layered onto gluestack's default token set — this
- * is the officially-supported customization path (override `tokens.colors`
- * on the config object gluestack's style engine already resolves `$primary600`
- * etc. against, rather than a component-by-component style patch).
- *
- * Primary: an indigo/violet, distinct from gluestack's stock generic blue —
- * reads as "trustworthy tech platform," not a default component-library demo.
- * Semantic error/success/warning scales are left as gluestack's own
- * (already accessibility-tuned) rather than reinvented.
+ * MOTIQ's dark palette ("Midnight & Signal Green") layered onto gluestack's
+ * token set. Primary is signal green anchored at primary600. The legacy
+ * light-mode tokens (backgroundLight*, textLight*, borderLight*, primary
+ * tints) are remapped to dark equivalents so screens not yet redesigned
+ * stay readable. `$white` is left white: it is used for text on fills.
  */
 const motiqPrimary = {
-  primary0: "#F5F3FF",
-  primary50: "#EEF2FF",
-  primary100: "#E0E7FF",
-  primary200: "#C7D2FE",
-  primary300: "#A5B4FC",
-  primary400: "#818CF8",
-  primary500: "#6366F1",
-  primary600: "#4F46E5",
-  primary700: "#4338CA",
-  primary800: "#3730A3",
-  primary900: "#312E81",
-  primary950: "#1E1B4B",
+  primary0: "#0F2A1E",
+  primary50: "#12281E",
+  primary100: "#143324",
+  primary200: "#1A4A33",
+  primary300: "#1E7A52",
+  primary400: "#1FB874",
+  primary500: "#22E58B",
+  primary600: "#22E58B",
+  primary700: "#22E58B",
+  primary800: "#1BC474",
+  primary900: "#169D5C",
+  primary950: "#0F6B3F",
+};
+
+const darkRemap = {
+  backgroundLight0: "#17171C",
+  backgroundLight50: "#0B0B0F",
+  backgroundLight100: "#1F2026",
+  backgroundLight200: "#1F2026",
+  backgroundLight300: "#2A2B33",
+  textLight900: "#FFFFFF",
+  textLight800: "#FFFFFF",
+  textLight700: "#E6E7EB",
+  textLight600: "#A1A3AD",
+  textLight500: "#A1A3AD",
+  textLight400: "#6B6E7A",
+  borderLight100: "#2A2B33",
+  borderLight200: "#2A2B33",
+  borderLight300: "#2A2B33",
+  borderLight400: "#3A3B44",
+  error50: "#2A1414",
+  error100: "#3A1818",
+  error600: "#FF4D4D",
+  error700: "#FF8080",
+  warning100: "#2E2410",
+  warning700: "#FFB84D",
+  success100: "#0F2A1E",
 };
 
 export const motiqConfig = {
@@ -33,6 +54,7 @@ export const motiqConfig = {
     colors: {
       ...defaultConfig.tokens.colors,
       ...motiqPrimary,
+      ...darkRemap,
     },
     // Sora/Plus Jakarta Sans were loaded at the app root (App.tsx) for the
     // Provider Home redesign, but gluestack's own `$heading`/`$body` font

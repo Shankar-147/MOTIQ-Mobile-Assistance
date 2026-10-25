@@ -1,48 +1,47 @@
 /**
- * A small shared palette so the live-tracking screens (and anything built
- * after them) stop each hand-rolling their own slightly-different blues and
- * grays. Not a full design system — just enough consistency to read as one
- * product instead of a pile of independently-styled screens.
+ * Shared palette — "Midnight & Signal Green", dark only. Legacy keys from the
+ * earlier light/indigo palette are kept and re-pointed at their dark
+ * equivalents so screens that have not been redesigned yet stay readable.
  */
 export const COLORS = {
-  primary: "#4F46E5",
-  primaryDark: "#4338CA",
-  primaryDeep: "#1E1B4B",
-  danger: "#dc2626",
-  dangerDark: "#b91c1c",
-  success: "#16a34a",
-  warning: "#d97706",
+  bg: "#0B0B0F",
+  surface: "#17171C",
+  surfaceRaised: "#1F2026",
+  border: "#2A2B33",
 
-  /** The Provider Home redesign's "electric" accent — a lime pop against
-   * the indigo hero, used for the online-status pulse/toggle only, not a
-   * general-purpose brand color. See docs discussion in the design canvas
-   * this screen was mocked up from. */
-  electric: "#A3E635",
-  electricGlow: "rgba(163, 230, 53, 0.22)",
+  text: "#FFFFFF",
+  textSecondary: "#A1A3AD",
+  textMuted: "#6B6E7A",
 
-  bg: "#f8fafc",
-  bgTint: "#F6F6FB",
-  surface: "#ffffff",
-  border: "#e2e8f0",
+  accent: "#22E58B",
+  accentInk: "#04210F",
+  accentTint: "rgba(34, 229, 139, 0.14)",
+  danger: "#FF4D4D",
+  warning: "#FFB84D",
 
-  textPrimary: "#0f172a",
-  textSecondary: "#64748b",
-  textMuted: "#8B87A6",
-  textOnPrimary: "#ffffff",
+  // Legacy aliases (pre-redesign names) — dark-theme equivalents.
+  primary: "#22E58B",
+  primaryDark: "#1BC474",
+  primaryDeep: "#17171C",
+  dangerDark: "#D93636",
+  success: "#22E58B",
+  electric: "#22E58B",
+  electricGlow: "rgba(34, 229, 139, 0.22)",
+  bgTint: "#17171C",
+  textPrimary: "#FFFFFF",
+  textOnPrimary: "#04210F",
 } as const;
 
 export const SHADOW = {
-  shadowColor: "#0f172a",
+  shadowColor: "#000000",
   shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.12,
+  shadowOpacity: 0.4,
   shadowRadius: 12,
   elevation: 6,
 } as const;
 
-/** Google Fonts loaded at the app root (App.tsx) — Sora for display/numbers,
- * Plus Jakarta Sans as this screen's body face. Scoped to the Provider Home
- * redesign for now, not yet adopted app-wide (see CLAUDE.md's frontend
- * conventions note on keeping typography flexible, not a forced rollout). */
+/** Sora for display/numerals/titles, Plus Jakarta Sans for body — loaded at
+ * the app root (App.tsx) and wired to gluestack's heading/body tokens. */
 export const FONTS = {
   display: "Sora_700Bold",
   displaySemibold: "Sora_600SemiBold",

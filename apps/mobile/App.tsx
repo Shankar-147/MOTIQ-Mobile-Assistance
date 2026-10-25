@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { DefaultTheme, NavigationContainer, type Theme } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
 import { useFonts, Sora_600SemiBold, Sora_700Bold } from "@expo-google-fonts/sora";
@@ -16,7 +16,22 @@ import { usePendingOfferStore } from "./src/store/pendingOfferStore";
 import { watchConnectivityAndFlush } from "./src/api/offlineQueue";
 import { addNotificationTapListener, registerForPushNotifications } from "./src/notifications/pushRegistration";
 import { LoadingScreen } from "./src/components/ui";
+import { COLORS } from "./src/theme/colors";
 import { LanguageProvider } from "./src/i18n/LanguageContext";
+
+const navigationTheme: Theme = {
+  ...DefaultTheme,
+  dark: true,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: COLORS.accent,
+    background: COLORS.bg,
+    card: COLORS.surface,
+    text: COLORS.text,
+    border: COLORS.border,
+    notification: COLORS.danger,
+  },
+};
 
 export default function App() {
   // Ch72's Provider Home redesign introduces Sora/Plus Jakarta Sans (see
@@ -75,8 +90,8 @@ export default function App() {
     <GluestackUIProvider config={motiqConfig}>
       <LanguageProvider>
         {fontsLoaded ? (
-          <NavigationContainer>
-            <StatusBar style="auto" />
+          <NavigationContainer theme={navigationTheme}>
+            <StatusBar style="light" />
             <RootNavigator />
           </NavigationContainer>
         ) : (
