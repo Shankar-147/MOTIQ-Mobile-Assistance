@@ -1,5 +1,8 @@
 import { apiFetch } from "@/lib/api";
 import { OverrideForm } from "./override-form";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { PaginatedResult } from "@motiq/types";
 
 interface RequestNeedingDispatch {
@@ -45,35 +48,35 @@ export default async function DispatchPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Dispatch queue</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="font-display text-2xl font-bold text-slate-900">Dispatch queue</h1>
+      <p className="mt-1 max-w-3xl text-sm text-slate-500">
         Requests automated matching hasn&apos;t resolved (MATCHING) or gave up on (EXPIRED). Assigning a
         provider here is immediately binding — no offer/response phase — and goes through the exact same
         same-city and verification-eligibility guards as automatic dispatch.
       </p>
 
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-6 flex flex-col gap-3">
         {requestsWithProviders.length === 0 ? (
-          <p className="text-sm text-slate-400">Nothing needs manual dispatch right now.</p>
+          <EmptyState title="Nothing needs manual dispatch right now" />
         ) : (
           requestsWithProviders.map(({ request, providers }) => (
-            <div key={request.id} className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between">
+            <Card key={request.id} className="transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold capitalize">{request.issueType.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-semibold capitalize text-slate-900">
+                    {request.issueType.replace(/_/g, " ")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
                     {request.vehicleSnapshotMake} {request.vehicleSnapshotModel} ·{" "}
                     {request.vehicleSnapshotPlateNumber} · {new Date(request.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                  {request.status}
-                </span>
+                <Badge tone="warning">{request.status}</Badge>
               </div>
-              <div className="mt-3">
+              <div className="mt-4">
                 <OverrideForm serviceRequestId={request.id} providers={providers} />
               </div>
-            </div>
+            </Card>
           ))
         )}
       </div>
@@ -81,9 +84,9 @@ export default async function DispatchPage({
       {result.pagination.nextCursor ? (
         <a
           href={`/dispatch?cursor=${result.pagination.nextCursor}`}
-          className="mt-4 inline-block text-sm text-blue-600 underline"
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
         >
-          Next page
+          Next page →
         </a>
       ) : null}
     </div>

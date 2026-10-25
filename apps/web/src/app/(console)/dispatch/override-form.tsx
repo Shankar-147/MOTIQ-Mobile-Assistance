@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { dispatchOverrideAction, DispatchOverrideState } from "./actions";
+import { Button } from "@/components/ui/Button";
 
 interface EligibleProvider {
   id: string;
@@ -15,13 +16,9 @@ const initialState: DispatchOverrideState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md bg-slate-800 px-3 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
-    >
+    <Button type="submit" size="sm" disabled={pending}>
       {pending ? "Assigning…" : "Assign provider"}
-    </button>
+    </Button>
   );
 }
 
@@ -39,14 +36,12 @@ export function OverrideForm({
     return <p className="text-sm text-slate-400">No providers exist in this request&apos;s service area.</p>;
   }
 
+  const fieldClasses =
+    "rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+
   return (
     <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <select
-        name="providerProfileId"
-        required
-        className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-        defaultValue=""
-      >
+      <select name="providerProfileId" required className={fieldClasses} defaultValue="">
         <option value="" disabled>
           Choose a provider…
         </option>
@@ -60,10 +55,10 @@ export function OverrideForm({
         type="text"
         name="reason"
         placeholder="Reason (optional, for the audit log)"
-        className="rounded-md border border-slate-300 px-2 py-1.5 text-sm sm:w-64"
+        className={`${fieldClasses} sm:w-64`}
       />
       <SubmitButton />
-      {state.error ? <span className="text-xs text-red-600">{state.error}</span> : null}
+      {state.error ? <span className="text-xs font-medium text-danger">{state.error}</span> : null}
     </form>
   );
 }
