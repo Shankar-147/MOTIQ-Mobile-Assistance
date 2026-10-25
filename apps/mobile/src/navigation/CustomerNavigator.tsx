@@ -64,7 +64,7 @@ export function CustomerNavigator() {
       <Stack.Screen
         name="CreateRequest"
         component={CreateRequestScreen}
-        options={{ title: "Request assistance" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="Matching" component={MatchingScreen} options={{ headerShown: false }} />
       <Stack.Screen

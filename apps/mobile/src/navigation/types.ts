@@ -1,4 +1,4 @@
-import { UserRole } from "@motiq/types";
+import { IssueType, UserRole } from "@motiq/types";
 
 export type AuthStackParamList = {
   Welcome: undefined;
@@ -14,7 +14,7 @@ export type CustomerTabParamList = {
 
 export type CustomerStackParamList = {
   MainTabs: undefined;
-  CreateRequest: { vehicleId?: string } | undefined;
+  CreateRequest: { vehicleId?: string; issueType?: IssueType } | undefined;
   Matching: { serviceRequestId: string };
   TrackRequest: { serviceRequestId: string };
   RequestDetail: { serviceRequestId: string };

@@ -12,3 +12,13 @@ export const ISSUE_ICONS: Record<IssueType, typeof Truck> = {
   [IssueType.BATTERY_JUMP]: BatteryCharging,
   [IssueType.OTHER]: CircleHelp,
 };
+
+/** Short, human labels for the issue tiles. */
+export const ISSUE_LABELS: Record<IssueType, string> = {
+  [IssueType.TOW]: "Tow",
+  [IssueType.REPAIR]: "Repair",
+  [IssueType.FUEL]: "Fuel",
+  [IssueType.FLAT_TYRE]: "Flat tyre",
+  [IssueType.BATTERY_JUMP]: "Battery jump",
+  [IssueType.OTHER]: "Other",
+};
