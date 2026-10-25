@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/api";
 import { ReviewButtons } from "./review-buttons";
+import { Table, Th, Td } from "@/components/ui/Table";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { VerificationDocumentType } from "@motiq/types";
 
 interface PendingDocument {
@@ -15,54 +17,45 @@ export default async function VerificationsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Verification queue</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Ch98's KYC review — approving/rejecting a document never changes a provider's tier by itself;
-        do that from the Providers page once you've judged enough documents.
+      <h1 className="font-display text-2xl font-bold text-slate-900">Verification queue</h1>
+      <p className="mt-1 max-w-3xl text-sm text-slate-500">
+        Ch98&apos;s KYC review — approving/rejecting a document never changes a provider&apos;s tier by
+        itself; do that from the Providers page once you&apos;ve judged enough documents.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-2">Provider</th>
-              <th className="px-4 py-2">Document type</th>
-              <th className="px-4 py-2">File</th>
-              <th className="px-4 py-2">Submitted</th>
-              <th className="px-4 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.length === 0 ? (
+      <div className="mt-6">
+        {documents.length === 0 ? (
+          <EmptyState title="No pending documents" />
+        ) : (
+          <Table>
+            <thead>
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  No pending documents.
-                </td>
+                <Th>Provider</Th>
+                <Th>Document type</Th>
+                <Th>File</Th>
+                <Th>Submitted</Th>
+                <Th>Action</Th>
               </tr>
-            ) : (
-              documents.map((document) => (
-                <tr key={document.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-mono text-xs">{document.providerProfileId}</td>
-                  <td className="px-4 py-2">{document.documentType.replace(/_/g, " ")}</td>
-                  <td className="px-4 py-2">
-                    <a
-                      href={document.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 underline"
-                    >
+            </thead>
+            <tbody>
+              {documents.map((document) => (
+                <tr key={document.id}>
+                  <Td className="font-mono text-xs">{document.providerProfileId}</Td>
+                  <Td>{document.documentType.replace(/_/g, " ")}</Td>
+                  <Td>
+                    <a href={document.fileUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
                       View
                     </a>
-                  </td>
-                  <td className="px-4 py-2">{new Date(document.submittedAt).toLocaleString()}</td>
-                  <td className="px-4 py-2">
+                  </Td>
+                  <Td className="whitespace-nowrap">{new Date(document.submittedAt).toLocaleString()}</Td>
+                  <Td>
                     <ReviewButtons documentId={document.id} />
-                  </td>
+                  </Td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </div>
     </div>
   );

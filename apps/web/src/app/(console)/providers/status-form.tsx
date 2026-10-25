@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { updateVerificationStatusAction, UpdateStatusState } from "./actions";
+import { Button } from "@/components/ui/Button";
 import type { ProviderVerificationStatus } from "@motiq/types";
 
 const STATUS_OPTIONS: ProviderVerificationStatus[] = [
@@ -17,13 +18,9 @@ const initialState: UpdateStatusState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md bg-slate-800 px-3 py-1 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
-    >
+    <Button type="submit" size="sm" disabled={pending}>
       {pending ? "Saving…" : "Set"}
-    </button>
+    </Button>
   );
 }
 
@@ -42,7 +39,7 @@ export function StatusForm({
       <select
         name="status"
         defaultValue={currentStatus}
-        className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
       >
         {STATUS_OPTIONS.map((status) => (
           <option key={status} value={status}>
@@ -51,7 +48,7 @@ export function StatusForm({
         ))}
       </select>
       <SubmitButton />
-      {state.error ? <span className="text-xs text-red-600">{state.error}</span> : null}
+      {state.error ? <span className="text-xs font-medium text-danger">{state.error}</span> : null}
     </form>
   );
 }

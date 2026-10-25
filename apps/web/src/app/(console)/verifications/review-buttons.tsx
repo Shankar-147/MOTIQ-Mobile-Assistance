@@ -2,28 +2,31 @@
 
 import { useTransition } from "react";
 import { reviewDocumentAction } from "./actions";
+import { Button } from "@/components/ui/Button";
 
 export function ReviewButtons({ documentId }: { documentId: string }) {
   const [isPending, startTransition] = useTransition();
 
   return (
     <div className="flex gap-2">
-      <button
+      <Button
         type="button"
+        variant="success"
+        size="sm"
         disabled={isPending}
         onClick={() => startTransition(() => reviewDocumentAction(documentId, "APPROVED"))}
-        className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
       >
         Approve
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="danger"
+        size="sm"
         disabled={isPending}
         onClick={() => startTransition(() => reviewDocumentAction(documentId, "REJECTED"))}
-        className="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
       >
         Reject
-      </button>
+      </Button>
     </div>
   );
 }

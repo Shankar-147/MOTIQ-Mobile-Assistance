@@ -2,6 +2,8 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { CreateServiceAreaForm } from "./create-form";
 import { LaunchPhaseSelect } from "./launch-phase-select";
+import { Table, Th, Td } from "@/components/ui/Table";
+import { Card } from "@/components/ui/Card";
 
 interface ServiceAreaRow {
   id: string;
@@ -14,43 +16,43 @@ export default async function ServiceAreasPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Service areas</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Ch7's four-phase cold-start playbook — advancing a phase here is a real write, not cosmetic.
+      <h1 className="font-display text-2xl font-bold text-slate-900">Service areas</h1>
+      <p className="mt-1 max-w-3xl text-sm text-slate-500">
+        Ch7&apos;s four-phase cold-start playbook — advancing a phase here is a real write, not cosmetic.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+      <div className="mt-6">
+        <Table>
+          <thead>
             <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">ID</th>
-              <th className="px-4 py-2">Launch phase</th>
-              <th className="px-4 py-2">Pricing</th>
+              <Th>Name</Th>
+              <Th>ID</Th>
+              <Th>Launch phase</Th>
+              <Th>Pricing</Th>
             </tr>
           </thead>
           <tbody>
             {serviceAreas.map((area) => (
-              <tr key={area.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2">{area.name}</td>
-                <td className="px-4 py-2 font-mono text-xs">{area.id}</td>
-                <td className="px-4 py-2">
+              <tr key={area.id}>
+                <Td className="font-medium text-slate-900">{area.name}</Td>
+                <Td className="font-mono text-xs">{area.id}</Td>
+                <Td>
                   <LaunchPhaseSelect serviceAreaId={area.id} currentPhase={area.launchPhase} />
-                </td>
-                <td className="px-4 py-2">
-                  <Link href={`/service-areas/${area.id}`} className="text-blue-600 underline">
+                </Td>
+                <Td>
+                  <Link href={`/service-areas/${area.id}`} className="font-medium text-primary hover:underline">
                     Configure
                   </Link>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </div>
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <Card className="mt-6">
         <CreateServiceAreaForm />
-      </div>
+      </Card>
     </div>
   );
 }

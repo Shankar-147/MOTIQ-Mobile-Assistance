@@ -29,7 +29,7 @@ export function LaunchPhaseSelect({
           advanceLaunchPhaseAction(serviceAreaId, event.target.value as ServiceAreaLaunchPhase),
         )
       }
-      className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
     >
       {PHASES.map((phase) => (
         <option key={phase} value={phase}>

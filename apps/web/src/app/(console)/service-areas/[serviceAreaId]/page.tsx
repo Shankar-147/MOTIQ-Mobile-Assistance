@@ -1,5 +1,6 @@
 import { apiFetch, ApiError } from "@/lib/api";
 import { FareConfigForm, CommissionRateForm } from "./forms";
+import { Card } from "@/components/ui/Card";
 
 interface ServiceAreaRow {
   id: string;
@@ -40,17 +41,17 @@ export default async function ServiceAreaPricingPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">{serviceArea.name} — pricing</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Ch34's binding rule: fare and commission are database configuration, never code constants.
+      <h1 className="font-display text-2xl font-bold text-slate-900">{serviceArea.name} — pricing</h1>
+      <p className="mt-1 max-w-3xl text-sm text-slate-500">
+        Ch34&apos;s binding rule: fare and commission are database configuration, never code constants.
         Setting a new value here creates a new effective-dated row (ADR 0003/0012) — it never
         overwrites history.
       </p>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <Card as="section" className="mt-6">
         <h2 className="text-sm font-semibold text-slate-700">Fare config</h2>
         {!fareConfig ? (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 rounded-lg bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
             No fare config set yet — requests in this service area cannot be priced until one exists.
           </p>
         ) : null}
@@ -68,12 +69,12 @@ export default async function ServiceAreaPricingPage({
             }
           />
         </div>
-      </section>
+      </Card>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <Card as="section" className="mt-6">
         <h2 className="text-sm font-semibold text-slate-700">Commission rate</h2>
         {!commissionRate ? (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 rounded-lg bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
             No commission rate set yet — payment settlement cannot compute a split until one exists.
           </p>
         ) : null}
@@ -83,7 +84,7 @@ export default async function ServiceAreaPricingPage({
             current={commissionRate?.ratePercentage ?? null}
           />
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

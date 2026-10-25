@@ -2,19 +2,17 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { setFareConfigAction, setCommissionRateAction, FormState } from "../actions";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Input";
 
 const initialState: FormState = { error: null };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? "Saving…" : label}
-    </button>
+    </Button>
   );
 }
 
@@ -31,43 +29,26 @@ export function FareConfigForm({
       <input type="hidden" name="serviceAreaId" value={serviceAreaId} />
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600">Base fare (INR)</label>
-          <input
-            name="baseFare"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            defaultValue={current?.baseFare}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-          />
+          <Field>Base fare (INR)</Field>
+          <Input name="baseFare" type="number" step="0.01" min="0" required defaultValue={current?.baseFare} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600">Per-km rate (INR)</label>
-          <input
-            name="perKmRate"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            defaultValue={current?.perKmRate}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-          />
+          <Field>Per-km rate (INR)</Field>
+          <Input name="perKmRate" type="number" step="0.01" min="0" required defaultValue={current?.perKmRate} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600">Max surge multiplier</label>
-          <input
+          <Field>Max surge multiplier</Field>
+          <Input
             name="maxSurgeMultiplier"
             type="number"
             step="0.1"
             min="1"
             defaultValue={current?.maxSurgeMultiplier}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
           />
         </div>
       </div>
       <SubmitButton label="Set fare config" />
-      {state.error ? <p className="text-xs text-red-600">{state.error}</p> : null}
+      {state.error ? <p className="text-xs font-medium text-danger">{state.error}</p> : null}
     </form>
   );
 }
@@ -83,9 +64,9 @@ export function CommissionRateForm({
   return (
     <form action={formAction} className="flex items-end gap-3">
       <input type="hidden" name="serviceAreaId" value={serviceAreaId} />
-      <div>
-        <label className="block text-xs font-medium text-slate-600">Commission rate (%)</label>
-        <input
+      <div className="max-w-xs">
+        <Field>Commission rate (%)</Field>
+        <Input
           name="ratePercentage"
           type="number"
           step="0.1"
@@ -93,11 +74,10 @@ export function CommissionRateForm({
           max="100"
           required
           defaultValue={current ?? undefined}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
         />
       </div>
       <SubmitButton label="Set commission rate" />
-      {state.error ? <span className="text-xs text-red-600">{state.error}</span> : null}
+      {state.error ? <span className="text-xs font-medium text-danger">{state.error}</span> : null}
     </form>
   );
 }

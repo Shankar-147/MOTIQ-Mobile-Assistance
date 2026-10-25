@@ -1,5 +1,8 @@
 import { apiFetch } from "@/lib/api";
 import { StatusForm } from "./status-form";
+import { Table, Th, Td } from "@/components/ui/Table";
+import { Badge, statusTone } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { PaginatedResult } from "@motiq/types";
 
 interface ProviderRow {
@@ -24,57 +27,60 @@ export default async function ProvidersPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Providers</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="font-display text-2xl font-bold text-slate-900">Providers</h1>
+      <p className="mt-1 max-w-3xl text-sm text-slate-500">
         Changing verification status here goes through the same guarded state machine as every other
         write path (Ch98, ADR 0016) — an invalid transition is rejected, not silently applied.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-2">Business</th>
-              <th className="px-4 py-2">Phone</th>
-              <th className="px-4 py-2">Presence</th>
-              <th className="px-4 py-2">Trust score</th>
-              <th className="px-4 py-2">Rating</th>
-              <th className="px-4 py-2">Jobs</th>
-              <th className="px-4 py-2">Verification status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.data.length === 0 ? (
+      <div className="mt-6">
+        {result.data.length === 0 ? (
+          <EmptyState title="No providers yet" />
+        ) : (
+          <Table>
+            <thead>
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
-                  No providers yet.
-                </td>
+                <Th>Business</Th>
+                <Th>Phone</Th>
+                <Th>Presence</Th>
+                <Th>Trust score</Th>
+                <Th>Rating</Th>
+                <Th>Jobs</Th>
+                <Th>Verification status</Th>
               </tr>
-            ) : (
-              result.data.map((provider) => (
-                <tr key={provider.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{provider.businessName}</td>
-                  <td className="px-4 py-2">{provider.user.phone}</td>
-                  <td className="px-4 py-2">{provider.presenceStatus}</td>
-                  <td className="px-4 py-2">{provider.trustScore}</td>
-                  <td className="px-4 py-2">{provider.ratingAverage}</td>
-                  <td className="px-4 py-2">{provider.completedJobCount}</td>
-                  <td className="px-4 py-2">
-                    <StatusForm providerProfileId={provider.id} currentStatus={provider.verificationStatus} />
-                  </td>
+            </thead>
+            <tbody>
+              {result.data.map((provider) => (
+                <tr key={provider.id}>
+                  <Td className="font-medium text-slate-900">{provider.businessName}</Td>
+                  <Td className="whitespace-nowrap">{provider.user.phone}</Td>
+                  <Td>
+                    <Badge tone={provider.presenceStatus === "ONLINE" ? "success" : "neutral"}>
+                      {provider.presenceStatus}
+                    </Badge>
+                  </Td>
+                  <Td>{provider.trustScore}</Td>
+                  <Td>{provider.ratingAverage}</Td>
+                  <Td>{provider.completedJobCount}</Td>
+                  <Td>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={statusTone(provider.verificationStatus)}>{provider.verificationStatus}</Badge>
+                      <StatusForm providerProfileId={provider.id} currentStatus={provider.verificationStatus} />
+                    </div>
+                  </Td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </div>
 
       {result.pagination.nextCursor ? (
         <a
           href={`/providers?cursor=${result.pagination.nextCursor}`}
-          className="mt-4 inline-block text-sm text-blue-600 underline"
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
         >
-          Next page
+          Next page →
         </a>
       ) : null}
     </div>
