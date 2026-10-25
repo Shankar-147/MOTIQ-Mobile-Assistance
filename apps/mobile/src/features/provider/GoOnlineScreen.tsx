@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
-import { Plus, Truck } from "lucide-react-native";
+import { ArrowRight, Plus, Truck } from "lucide-react-native";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { AssignmentStatus, IssueType, PresenceStatus, ProviderVerificationStatus } from "@motiq/types";
+import { AssignmentStatus, IssueType, PresenceStatus, ProviderVerificationStatus, RequestStatus } from "@motiq/types";
 import { ProviderStackParamList, ProviderTabParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { providerFleetVehicleApi } from "../../api/providerFleetVehicleApi";
@@ -47,8 +47,16 @@ interface RecentJob {
   status: AssignmentStatus;
   offeredAt: string;
   distanceMeters: number | null;
-  serviceRequest: { issueType: IssueType };
+  serviceRequest: { id: string; issueType: IssueType; status: RequestStatus };
 }
+
+const TERMINAL_REQUEST_STATUSES = new Set<RequestStatus>([
+  RequestStatus.COMPLETED,
+  RequestStatus.CANCELLED_BY_CUSTOMER,
+  RequestStatus.CANCELLED_BY_PROVIDER,
+  RequestStatus.EXPIRED,
+  RequestStatus.FAILED,
+]);
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
@@ -78,6 +86,15 @@ export function GoOnlineScreen({ navigation }: Props) {
   const pendingOffer = usePendingOfferStore((state) => state.pendingOffer);
   const setPendingOffer = usePendingOfferStore((state) => state.setPendingOffer);
   const { position } = useDeviceLocation();
+
+  // The way back into work in progress: there is no endpoint for "my pending
+  // offer", and a missed push would otherwise strand an accepted job, so the
+  // newest still-open assignment (offered or accepted) is surfaced here.
+  const openJob = recentJobs.find(
+    (job) =>
+      (job.status === AssignmentStatus.ACCEPTED || job.status === AssignmentStatus.OFFERED) &&
+      !TERMINAL_REQUEST_STATUSES.has(job.serviceRequest.status),
+  );
 
   useEffect(() => {
     registerForPushNotifications().catch(() => undefined);
@@ -217,6 +234,40 @@ export function GoOnlineScreen({ navigation }: Props) {
 
           {error ? (
             <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.danger, textAlign: "center" }}>{error}</Text>
+          ) : null}
+
+          {openJob ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={openJob.status === AssignmentStatus.OFFERED ? "View waiting job offer" : "Resume current job"}
+              onPress={() => {
+                const params = { assignmentId: openJob.id, serviceRequestId: openJob.serviceRequest.id };
+                if (openJob.status === AssignmentStatus.OFFERED) navigation.navigate("JobOffer", params);
+                else navigation.navigate("ActiveJob", params);
+              }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                padding: 14,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: COLORS.accent,
+                backgroundColor: COLORS.accentTint,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <PulseDot />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.text }}>
+                  {openJob.status === AssignmentStatus.OFFERED ? "New job offer waiting" : "Job in progress"}
+                </Text>
+                <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary }}>
+                  {openJob.status === AssignmentStatus.OFFERED ? "Tap to view and respond" : "Tap to resume"}
+                </Text>
+              </View>
+              <ArrowRight size={20} color={COLORS.accent} />
+            </Pressable>
           ) : null}
 
           <View style={{ flexDirection: "row", gap: 10 }}>
