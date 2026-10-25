@@ -27,6 +27,7 @@ export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, childre
   const translateY = useSharedValue(offsets[initialSnap] ?? 0);
   const startY = useRef(0);
   const currentIndex = useRef(initialSnap);
+  const [snapIndex, setSnapIndex] = useState(initialSnap);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const animateTo = useCallback(
@@ -39,6 +40,7 @@ export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, childre
   const snapTo = useCallback(
     (index: number) => {
       currentIndex.current = index;
+      setSnapIndex(index);
       animateTo(offsets[index]);
       onSnapChange?.(index);
     },
@@ -110,7 +112,7 @@ export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, childre
       <ScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 16 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 16 + (keyboardOpen ? 0 : offsets[snapIndex] ?? 0) }}
       >
         {children}
       </ScrollView>
