@@ -8,6 +8,7 @@ import {
   InputField,
 } from "@gluestack-ui/themed";
 import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { COLORS } from "../../theme/colors";
 
 interface AppInputProps {
   label?: string;
@@ -40,11 +41,13 @@ export function Input({
           <FormControlLabelText>{label}</FormControlLabelText>
         </FormControlLabel>
       ) : null}
-      <GSInput variant="outline" size="lg" minHeight={multiline ? 90 : MIN_TOUCH_TARGET_SIZE} borderRadius="$lg">
+      <GSInput variant="outline" size="lg" minHeight={multiline ? 90 : Math.max(56, MIN_TOUCH_TARGET_SIZE)} borderRadius={16} bg={COLORS.surfaceRaised} borderColor={COLORS.border}>
         <InputField
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
+          placeholderTextColor={COLORS.textMuted}
+          color={COLORS.text}
           multiline={multiline}
           textAlignVertical={multiline ? "top" : "center"}
           py={multiline ? "$3" : undefined}

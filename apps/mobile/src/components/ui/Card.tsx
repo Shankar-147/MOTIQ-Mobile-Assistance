@@ -1,28 +1,12 @@
 import React from "react";
 import { Box } from "@gluestack-ui/themed";
+import { COLORS } from "../../theme/colors";
 
-const DEFAULT_SHADOW = {
-  shadowColor: "#312E81",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.06,
-  shadowRadius: 8,
-  elevation: 2,
-};
-
-/** The project's one card surface — every grouped chunk of content routes
- * through this instead of a hand-rolled bordered `View`. Carries a subtle
- * default shadow so screens don't each have to remember to add one. */
-export function Card({ children, style, ...rest }: React.ComponentProps<typeof Box>) {
+/** The project's one card surface — flat surface fill with a hairline
+ * border (no shadow: shadows don't read on dark). */
+export function Card({ children, ...rest }: React.ComponentProps<typeof Box>) {
   return (
-    <Box
-      bg="$white"
-      borderRadius="$2xl"
-      borderWidth={1}
-      borderColor="$borderLight200"
-      p="$4"
-      style={[DEFAULT_SHADOW, style]}
-      {...rest}
-    >
+    <Box bg={COLORS.surface} borderRadius={22} borderWidth={1} borderColor={COLORS.border} p="$4" {...rest}>
       {children}
     </Box>
   );

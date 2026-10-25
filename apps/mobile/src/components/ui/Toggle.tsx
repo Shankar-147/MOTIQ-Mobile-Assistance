@@ -18,8 +18,8 @@ export function Toggle({ value, onValueChange, accessibilityLabel, disabled = fa
       onValueChange={onValueChange}
       isDisabled={disabled}
       accessibilityLabel={accessibilityLabel}
-      trackColor={{ false: "$backgroundLight300", true: "$primary600" }}
-      thumbColor="$white"
+      trackColor={{ false: "#2A2B33", true: "#22E58B" }}
+      thumbColor="#FFFFFF"
     />
   );
 }

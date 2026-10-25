@@ -1,26 +1,21 @@
 import React from "react";
 import { Button as GSButton, ButtonText, ButtonSpinner } from "@gluestack-ui/themed";
 import type { LucideIcon } from "lucide-react-native";
-import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { COLORS } from "../../theme/colors";
 
 export type ButtonVariant = "primary" | "danger" | "success" | "outline";
 
-// "outline" deliberately maps to the "primary" action, not "secondary" —
-// gluestack's stock "secondary" scale renders outline buttons in a flat
-// gray with no relation to the brand palette. Using "primary" here keeps
-// text/icon/border all in the same indigo as every filled primary button.
-const ACTION_MAP: Record<ButtonVariant, "primary" | "secondary" | "positive" | "negative"> = {
-  primary: "primary",
-  danger: "negative",
-  success: "positive",
-  outline: "primary",
-};
+interface VariantStyle {
+  bg: string;
+  fg: string;
+  border: string;
+}
 
-const ICON_COLOR: Record<ButtonVariant, string> = {
-  primary: "#FFFFFF",
-  danger: "#FFFFFF",
-  success: "#FFFFFF",
-  outline: "#4F46E5",
+const VARIANT: Record<ButtonVariant, VariantStyle> = {
+  primary: { bg: COLORS.accent, fg: COLORS.accentInk, border: COLORS.accent },
+  success: { bg: COLORS.accent, fg: COLORS.accentInk, border: COLORS.accent },
+  danger: { bg: COLORS.danger, fg: "#FFFFFF", border: COLORS.danger },
+  outline: { bg: COLORS.surfaceRaised, fg: COLORS.text, border: COLORS.border },
 };
 
 interface AppButtonProps {
@@ -36,7 +31,7 @@ interface AppButtonProps {
 
 /** The project's one Button — every screen routes through this instead of a
  * hand-rolled `Pressable` + `StyleSheet`, per CLAUDE.md's gluestack-ui
- * component-first rule. */
+ * component-first rule. 56pt tall, radius 16; dark ink on the green fill. */
 export function Button({
   label,
   onPress,
@@ -47,21 +42,27 @@ export function Button({
   fullWidth = true,
   icon: Icon,
 }: AppButtonProps) {
+  const v = VARIANT[variant];
   return (
     <GSButton
-      action={ACTION_MAP[variant]}
-      variant={variant === "outline" ? "outline" : "solid"}
+      action="primary"
+      variant="solid"
       size="lg"
-      borderRadius="$xl"
-      minHeight={MIN_TOUCH_TARGET_SIZE}
+      borderRadius={16}
+      minHeight={56}
+      bg={v.bg}
+      borderWidth={1}
+      borderColor={v.border}
       w={fullWidth ? "$full" : undefined}
       isDisabled={disabled || loading}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel ?? label}
       py="$3"
+      opacity={disabled ? 0.45 : 1}
+      sx={{ ":active": { opacity: 0.85 } }}
     >
-      {loading ? <ButtonSpinner mr="$2" color="$white" /> : Icon ? <Icon size={18} color={ICON_COLOR[variant]} style={{ marginRight: 8 }} /> : null}
-      <ButtonText fontWeight="$bold" textAlign="center" flexShrink={1} flexWrap="wrap">
+      {loading ? <ButtonSpinner mr="$2" color={v.fg} /> : Icon ? <Icon size={18} color={v.fg} style={{ marginRight: 8 }} /> : null}
+      <ButtonText color={v.fg} fontWeight="$bold" textAlign="center" flexShrink={1} flexWrap="wrap">
         {label}
       </ButtonText>
     </GSButton>
