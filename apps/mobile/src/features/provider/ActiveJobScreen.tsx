@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { Box, HStack, Text } from "@gluestack-ui/themed";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Text, View } from "react-native";
 import * as Location from "expo-location";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RequestStatus } from "@motiq/types";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { requestApi } from "../../api/requestApi";
-import { LiveTrackingMap, GeoPoint } from "../../components/LiveTrackingMap";
+import { GeoPoint } from "../../components/LiveTrackingMap";
+import { MapBackdrop } from "../../components/MapBackdrop";
+import { OfflineBanner } from "../../components/OfflineBanner";
 import { StatusTimeline, TimelineStep } from "../../components/StatusTimeline";
-import { Button, Card, LoadingScreen } from "../../components/ui";
+import { BottomSheet, LoadingScreen, SlideToConfirm } from "../../components/ui";
 import { SosButton } from "../sos/SosButton";
 import { useRouteToPickup } from "../../hooks/useRouteToPickup";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "ActiveJob">;
 
@@ -45,21 +47,24 @@ const STEP_INDEX: Record<RequestStatus, number> = {
   [RequestStatus.COMPLETED]: 3,
 } as Record<RequestStatus, number>;
 
+const SHEET_SNAPS = [300];
+
 /**
- * Ch72's job-progress flow — one button that always advances to the next
+ * Ch72's job-progress flow — one control that always advances to the next
  * state in Ch19's state machine (RequestService.transition() rejects
  * anything else server-side, so the client doesn't need its own transition
- * validation, only the current-step label). Shown on a real map (previously
- * an abstract button-only screen with no sense of "where am I relative to
- * the customer," flagged in docs/roadmap.md) — a lightweight local location
- * watcher drives the "you are here" marker, independent of
- * locationTracking.ts's socket-emitting watcher so this screen doesn't need
- * to reach into that module's internals just to read a position back.
+ * validation, only the current-step label). Shown on a real map; a
+ * lightweight local location watcher drives the "you are here" marker,
+ * independent of locationTracking.ts's socket-emitting watcher so this screen
+ * doesn't need to reach into that module's internals just to read a
+ * position back. Advancing is a slide-to-confirm so a stray tap can't skip a
+ * step.
  */
 export function ActiveJobScreen({ route, navigation }: Props) {
   const { assignmentId, serviceRequestId } = route.params;
   const [status, setStatus] = useState<RequestStatus>(RequestStatus.PROVIDER_ACCEPTED);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [ownPosition, setOwnPosition] = useState<GeoPoint | null>(null);
   const drivingRoute = useRouteToPickup(serviceRequestId, ownPosition);
@@ -75,7 +80,7 @@ export function ActiveJobScreen({ route, navigation }: Props) {
         // backgrounded and reopened mid-job. Only trust it if it's still a
         // step this screen knows how to render (STEP_INDEX covers it) —
         // an already-COMPLETED request falling through here would leave
-        // the button stuck disabled with a stale label otherwise.
+        // the control stuck with a stale label otherwise.
         if (body.status in STEP_INDEX) {
           setStatus(body.status);
         }
@@ -108,16 +113,19 @@ export function ActiveJobScreen({ route, navigation }: Props) {
 
   async function handleAdvance() {
     const next = NEXT_STATUS[status];
-    if (!next) {
+    if (!next || submitting) {
       return;
     }
     setSubmitting(true);
+    setError(null);
     try {
       await providerApi.advanceJobStatus(assignmentId, next);
       setStatus(next);
       if (next === RequestStatus.COMPLETED) {
         navigation.replace("MainTabs");
       }
+    } catch {
+      setError("Couldn't update the job — check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -127,39 +135,43 @@ export function ActiveJobScreen({ route, navigation }: Props) {
     return <LoadingScreen />;
   }
 
+  const hasNext = Boolean(NEXT_STATUS[status]);
+
   return (
-    <Box flex={1} bg="$backgroundLight50">
-      <LiveTrackingMap
-        pickup={pickup}
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <MapBackdrop
+        position={pickup}
         moving={ownPosition}
         movingLabel="You"
         routeGeometry={drivingRoute?.geometry}
-        bottomInset={140}
-      />
-
-      <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["top"]}>
-        <Card m="$3">
-          <HStack alignItems="center" justifyContent="space-between" mb="$3">
-            <Text flex={1} fontWeight="$extrabold" size="md" textTransform="capitalize" color="$textLight900">
-              {status.replace(/_/g, " ")}
-            </Text>
+        bottomInset={SHEET_SNAPS[0] + 16}
+      >
+        <View pointerEvents="box-none" style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
             <SosButton serviceRequestId={serviceRequestId} />
-          </HStack>
-          <StatusTimeline steps={STEPS} currentIndex={STEP_INDEX[status] ?? 0} />
-        </Card>
-      </SafeAreaView>
+          </View>
+          <OfflineBanner />
+        </View>
+      </MapBackdrop>
 
-      <SafeAreaView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }} edges={["bottom"]}>
-        <Box m="$3">
-          <Button
-            label={submitting ? "Updating…" : STEP_LABEL[status]}
-            accessibilityLabel={STEP_LABEL[status]}
-            disabled={submitting || status === RequestStatus.COMPLETED}
-            loading={submitting}
-            onPress={handleAdvance}
-          />
-        </Box>
-      </SafeAreaView>
-    </Box>
+      <BottomSheet snapPoints={SHEET_SNAPS}>
+        <View style={{ gap: 16 }}>
+          <Text style={{ fontFamily: FONTS.display, fontSize: 22, color: COLORS.text, textTransform: "capitalize" }}>
+            {status.replace(/_/g, " ").toLowerCase()}
+          </Text>
+          <StatusTimeline steps={STEPS} currentIndex={STEP_INDEX[status] ?? 0} />
+          {error ? (
+            <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.danger }}>{error}</Text>
+          ) : null}
+          {hasNext ? (
+            <SlideToConfirm
+              label={`Slide: ${STEP_LABEL[status]}`}
+              loading={submitting}
+              onConfirm={handleAdvance}
+            />
+          ) : null}
+        </View>
+      </BottomSheet>
+    </View>
   );
 }

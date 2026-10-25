@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Center, HStack, Heading, Spinner, Text, VStack } from "@gluestack-ui/themed";
+import { Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, PackageCheck, X } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { IssueType } from "@motiq/types";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { requestApi } from "../../api/requestApi";
-import { ISSUE_ICONS } from "../../theme/issueIcons";
+import { ISSUE_ICONS, ISSUE_LABELS } from "../../theme/issueIcons";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Button } from "../../components/ui";
+import { Button, PulseDot, Skeleton } from "../../components/ui";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "JobOffer">;
 
@@ -31,10 +34,12 @@ interface JobOfferRequestDetails {
  * Fetches the request's own details (issue, vehicle, description) via
  * GET /requests/:id — RequestController.findOne() already allows PROVIDER
  * reads — instead of showing a bare "New job offer" with nothing to decide
- * on, which is what this screen did before.
+ * on. The offer's expiry is server configuration and not sent to the app, so
+ * no countdown is shown — only a "respond soon" note.
  */
 export function JobOfferScreen({ route, navigation }: Props) {
   const { assignmentId, serviceRequestId } = route.params;
+  const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<JobOfferRequestDetails | null>(null);
@@ -77,73 +82,109 @@ export function JobOfferScreen({ route, navigation }: Props) {
   const Icon = details ? ISSUE_ICONS[details.issueType] : PackageCheck;
   const hasVehicle = details && details.vehicleSnapshotMake !== "Unspecified";
 
+  const rowStyle = {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 12,
+  };
+  const labelStyle = { fontFamily: FONTS.body, fontSize: 14.5, color: COLORS.textSecondary };
+  const valueStyle = { fontFamily: FONTS.bodyBold, fontSize: 14.5, color: COLORS.text, flexShrink: 1, textAlign: "right" as const };
+
   return (
-    <VStack flex={1} bg="$backgroundLight0" p="$6" justifyContent="center" space="md">
-      <Center mb="$4">
-        <Center w={80} h={80} borderRadius="$full" bg="$primary50" mb="$4">
-          <Icon size={36} color="#22E58B" />
-        </Center>
-        <Heading size="2xl" textAlign="center">
-          New job offer
-        </Heading>
-        <Text color="$textLight500" textAlign="center" mt="$1">
-          Accept quickly — offers expire after a timeout window.
+    <KeyboardScreen contentContainerStyle={{ paddingTop: insets.top + 24, justifyContent: "center", gap: 20 }}>
+      <View style={{ alignItems: "center", gap: 12 }}>
+        <View
+          style={{
+            width: 96,
+            height: 96,
+            borderRadius: 48,
+            backgroundColor: COLORS.accentTint,
+            borderWidth: 2,
+            borderColor: COLORS.accent,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon size={42} color={COLORS.accent} />
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <PulseDot />
+          <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 12.5, letterSpacing: 1, color: COLORS.accent }}>NEW JOB OFFER</Text>
+        </View>
+        <Text style={{ fontFamily: FONTS.display, fontSize: 30, color: COLORS.text, textAlign: "center" }}>
+          {details ? ISSUE_LABELS[details.issueType] : "Job offer"}
         </Text>
-      </Center>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary, textAlign: "center" }}>
+          Respond soon — offers expire.
+        </Text>
+      </View>
 
       {loading ? (
-        <Center py="$4">
-          <Spinner />
-        </Center>
+        <View style={{ gap: 12 }}>
+          <Skeleton height={44} radius={14} />
+          <Skeleton height={44} radius={14} />
+        </View>
       ) : details ? (
-        <VStack bg="$backgroundLight50" borderRadius="$xl" p="$4" space="sm">
-          <HStack justifyContent="space-between">
-            <Text color="$textLight500">Concern</Text>
-            <Text fontWeight="$bold">{details.issueType.replace(/_/g, " ")}</Text>
-          </HStack>
-          <HStack justifyContent="space-between">
-            <Text color="$textLight500">Vehicle</Text>
-            <Text fontWeight="$bold">
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            paddingHorizontal: 16,
+            paddingVertical: 4,
+          }}
+        >
+          <View style={rowStyle}>
+            <Text style={labelStyle}>Concern</Text>
+            <Text style={valueStyle}>{ISSUE_LABELS[details.issueType]}</Text>
+          </View>
+          <View style={[rowStyle, !hasVehicle && !details.description ? { borderBottomWidth: 0 } : null]}>
+            <Text style={labelStyle}>Vehicle</Text>
+            <Text style={valueStyle}>
               {hasVehicle ? `${details.vehicleSnapshotMake} ${details.vehicleSnapshotModel}` : "Not specified"}
             </Text>
-          </HStack>
-          {hasVehicle && (
-            <HStack justifyContent="space-between">
-              <Text color="$textLight500">Plate</Text>
-              <Text fontWeight="$bold">{details.vehicleSnapshotPlateNumber}</Text>
-            </HStack>
-          )}
-          {details.description ? (
-            <VStack space="xs" mt="$1">
-              <Text color="$textLight500">Customer's note</Text>
-              <Text>{details.description}</Text>
-            </VStack>
+          </View>
+          {hasVehicle ? (
+            <View style={[rowStyle, !details.description ? { borderBottomWidth: 0 } : null]}>
+              <Text style={labelStyle}>Plate</Text>
+              <Text style={valueStyle}>{details.vehicleSnapshotPlateNumber}</Text>
+            </View>
           ) : null}
-        </VStack>
+          {details.description ? (
+            <View style={{ paddingVertical: 12, gap: 4 }}>
+              <Text style={labelStyle}>Customer's note</Text>
+              <Text style={{ fontFamily: FONTS.body, fontSize: 15, color: COLORS.text }}>{details.description}</Text>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {error ? (
-        <Text color="$error600" textAlign="center">
-          {error}
-        </Text>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.danger, textAlign: "center" }}>{error}</Text>
       ) : null}
 
-      <Button
-        label="Accept"
-        variant="success"
-        icon={Check}
-        accessibilityLabel={A11Y_LABELS.acceptOfferButton}
-        disabled={submitting}
-        onPress={handleAccept}
-      />
-      <Button
-        label="Decline"
-        variant="outline"
-        icon={X}
-        accessibilityLabel={A11Y_LABELS.rejectOfferButton}
-        disabled={submitting}
-        onPress={handleReject}
-      />
-    </VStack>
+      <View style={{ gap: 10 }}>
+        <Button
+          label="Accept"
+          variant="success"
+          icon={Check}
+          accessibilityLabel={A11Y_LABELS.acceptOfferButton}
+          disabled={submitting}
+          onPress={handleAccept}
+        />
+        <Button
+          label="Decline"
+          variant="outline"
+          icon={X}
+          accessibilityLabel={A11Y_LABELS.rejectOfferButton}
+          disabled={submitting}
+          onPress={handleReject}
+        />
+      </View>
+    </KeyboardScreen>
   );
 }
