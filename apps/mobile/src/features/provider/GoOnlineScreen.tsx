@@ -33,6 +33,7 @@ type Props = CompositeScreenProps<
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const RECENT_JOBS_LIMIT = 3;
+const RECENT_JOBS_REFRESH_MS = 8_000;
 const SHEET_SNAPS = [400, 660];
 
 interface OwnProfileSummary {
@@ -119,10 +120,16 @@ export function GoOnlineScreen({ navigation }: Props) {
         .then((response) => setTotalEarnings((response.data as { totalEarnings: string }).totalEarnings))
         .catch(() => undefined);
 
-      providerApi
-        .listOwnJobs({ limit: RECENT_JOBS_LIMIT })
-        .then((response) => setRecentJobs((response.data as { data: RecentJob[] }).data))
-        .catch(() => undefined);
+      const loadRecentJobs = () =>
+        providerApi
+          .listOwnJobs({ limit: RECENT_JOBS_LIMIT })
+          .then((response) => setRecentJobs((response.data as { data: RecentJob[] }).data))
+          .catch(() => undefined);
+      loadRecentJobs();
+      // No push or offer-polling endpoint exists, so while Home is open the
+      // job list refreshes on a timer — that is how a new offer surfaces.
+      const refresh = setInterval(loadRecentJobs, RECENT_JOBS_REFRESH_MS);
+      return () => clearInterval(refresh);
     }, []),
   );
 
