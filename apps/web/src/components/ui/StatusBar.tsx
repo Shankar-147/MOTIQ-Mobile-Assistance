@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Siren, Radar, CheckCircle2 } from "lucide-react";
+import { Siren, Radar, CheckCircle2 } from "@/lib/icons";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { PaginatedResult, SosAlertStatus } from "@motiq/types";

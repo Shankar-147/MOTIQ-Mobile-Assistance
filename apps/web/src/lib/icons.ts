@@ -31,3 +31,4 @@ export const MapPinned = asIcon(Lucide.MapPinned);
 export const ScrollText = asIcon(Lucide.ScrollText);
 export const KeyRound = asIcon(Lucide.KeyRound);
 export const LogOut = asIcon(Lucide.LogOut);
+export const CheckCircle2 = asIcon(Lucide.CheckCircle2);
