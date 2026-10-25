@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Box, HStack, Pressable, Text } from "@gluestack-ui/themed";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronLeft, Star } from "lucide-react-native";
+import { Share, View } from "react-native";
+import { Box, HStack, Text } from "@gluestack-ui/themed";
+import { Share2, Star } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ProviderVerificationStatus, RequestStatus } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
@@ -14,11 +14,15 @@ import {
   onLocationUpdate,
   subscribeToRequest,
 } from "../../realtime/trackingSocket";
-import { LiveTrackingMap, GeoPoint } from "../../components/LiveTrackingMap";
+import { GeoPoint } from "../../components/LiveTrackingMap";
+import { MapBackdrop } from "../../components/MapBackdrop";
+import { FloatingBackButton } from "../../components/FloatingBackButton";
+import { OfflineBanner } from "../../components/OfflineBanner";
 import { StatusTimeline, TimelineStep } from "../../components/StatusTimeline";
-import { Card, InitialsAvatar, LoadingScreen } from "../../components/ui";
+import { Badge, BottomSheet, Button, InitialsAvatar, LoadingScreen, PulseDot, StatBlock } from "../../components/ui";
 import { SosButton } from "../sos/SosButton";
 import { useRouteToPickup } from "../../hooks/useRouteToPickup";
+import { COLORS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "TrackRequest">;
 
@@ -41,6 +45,8 @@ const STEP_INDEX: Partial<Record<RequestStatus, number>> = {
   [RequestStatus.COMPLETED]: 4,
 };
 
+const SHEET_SNAPS = [330, 460];
+
 interface ProviderPublicProfile {
   businessName: string;
   ratingAverage: string;
@@ -54,7 +60,7 @@ interface ProviderPublicProfile {
  * never a bare number (Ch1's "never false precision," the same rule Phase
  * 3's eta.util.ts implements server-side).
  */
-export function TrackRequestScreen({ route, navigation }: Props) {
+export function TrackRequestScreen({ route }: Props) {
   const { serviceRequestId } = route.params;
   const [status, setStatus] = useState<RequestStatus | null>(null);
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
@@ -108,79 +114,72 @@ export function TrackRequestScreen({ route, navigation }: Props) {
   // built from an actual road-path duration, narrower/more honest than the
   // straight-line one the WebSocket gateway pushes on every ping.
   const eta = drivingRoute?.eta ?? location?.eta ?? null;
+  const etaText = eta ? `${eta.minMinutes}–${eta.maxMinutes} min` : null;
+
+  function shareTripStatus() {
+    const who = provider?.businessName ?? "a MOTIQ provider";
+    const message = `I'm getting roadside help from ${who}${etaText ? ` — arriving in ${etaText}` : ""}. (MOTIQ)`;
+    void Share.share({ message }).catch(() => undefined);
+  }
 
   return (
-    <Box flex={1} bg="$backgroundLight50">
-      <LiveTrackingMap
-        pickup={pickup}
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <MapBackdrop
+        position={pickup}
         moving={movingPoint}
         movingLabel={provider?.businessName}
         routeGeometry={drivingRoute?.geometry}
-        bottomInset={location ? 180 : 16}
-      />
-
-      <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["top"]}>
-        <Card m="$3">
-          <HStack alignItems="center" justifyContent="space-between" mb="$3">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              onPress={() => navigation.goBack()}
-              w={32}
-              h={32}
-              borderRadius="$full"
-              bg="$backgroundLight100"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <ChevronLeft size={20} color="#0F172A" />
-            </Pressable>
-            <Text flex={1} textAlign="center" fontWeight="$extrabold" size="md" textTransform="capitalize" color="$textLight900">
-              {(status ?? "Loading…").replace(/_/g, " ")}
-            </Text>
+        bottomInset={SHEET_SNAPS[0] + 16}
+      >
+        <View pointerEvents="box-none" style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <FloatingBackButton />
             <SosButton serviceRequestId={serviceRequestId} />
-          </HStack>
-          <StatusTimeline steps={STEPS} currentIndex={stepIndex} />
-        </Card>
-      </SafeAreaView>
+          </View>
+          <OfflineBanner />
+        </View>
+      </MapBackdrop>
 
-      {location ? (
-        <SafeAreaView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }} edges={["bottom"]}>
-          <Card m="$3">
-            <HStack alignItems="center" space="md">
+      <BottomSheet snapPoints={SHEET_SNAPS}>
+        <View style={{ gap: 16 }}>
+          <HStack alignItems="flex-end" justifyContent="space-between">
+            {etaText ? (
+              <StatBlock label="Arriving in" value={etaText} />
+            ) : (
+              <HStack alignItems="center" space="sm" flex={1}>
+                <PulseDot color={COLORS.warning} />
+                <Text color={COLORS.textSecondary} flex={1}>
+                  Waiting for your provider's live location…
+                </Text>
+              </HStack>
+            )}
+            {location ? <Badge label="Live" tone="success" /> : null}
+          </HStack>
+
+          {location ? (
+            <HStack alignItems="center" space="md" bg={COLORS.surfaceRaised} borderRadius={16} p="$3">
               <InitialsAvatar name={provider?.businessName?.charAt(0)?.toUpperCase() ?? "?"} />
               <Box flex={1}>
-                <Text fontWeight="$bold" size="md" color="$textLight900">
+                <Text fontWeight="$bold" size="md" color={COLORS.text}>
                   {provider?.businessName ?? "Your provider"}
                 </Text>
                 {provider ? (
                   <HStack alignItems="center" space="xs">
-                    <Star size={12} color="#D97706" fill="#D97706" />
-                    <Text size="sm" color="$textLight500" textTransform="capitalize">
-                      {Number(provider.ratingAverage).toFixed(1)} · {provider.verificationStatus.replace("_", " ")}
+                    <Star size={12} color={COLORS.warning} fill={COLORS.warning} />
+                    <Text size="sm" color={COLORS.textSecondary} textTransform="capitalize">
+                      {Number(provider.ratingAverage).toFixed(1)} · {provider.verificationStatus.replace("_", " ").toLowerCase()}
                     </Text>
                   </HStack>
                 ) : null}
               </Box>
-              {eta ? (
-                <Box bg="$primary50" borderRadius="$full" px="$3" py="$2">
-                  <Text color="$primary700" fontWeight="$extrabold" size="sm">
-                    {eta.minMinutes}-{eta.maxMinutes} min
-                  </Text>
-                </Box>
-              ) : null}
             </HStack>
-          </Card>
-        </SafeAreaView>
-      ) : (
-        <SafeAreaView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }} edges={["bottom"]}>
-          <Card m="$3">
-            <Text color="$textLight500" textAlign="center">
-              Waiting for your provider's live location…
-            </Text>
-          </Card>
-        </SafeAreaView>
-      )}
-    </Box>
+          ) : null}
+
+          <StatusTimeline steps={STEPS} currentIndex={stepIndex} />
+
+          <Button label="Share trip status" variant="outline" icon={Share2} onPress={shareTripStatus} />
+        </View>
+      </BottomSheet>
+    </View>
   );
 }

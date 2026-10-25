@@ -35,7 +35,7 @@ export function StatusTimeline({ steps, currentIndex }: StatusTimelineProps) {
                   isCurrent && styles.dotCurrent,
                 ]}
               >
-                {isDone ? <Check size={9} color="#FFFFFF" strokeWidth={3} /> : null}
+                {isDone ? <Check size={9} color={COLORS.accentInk} strokeWidth={3} /> : null}
               </View>
               {index < steps.length - 1 ? (
                 <View style={[styles.line, isDone && styles.lineDone]} />
@@ -75,10 +75,10 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 3,
-    borderColor: "#C7D2FE",
+    borderColor: COLORS.accentTint,
   },
   line: { flex: 1, height: 2, backgroundColor: COLORS.border },
   lineDone: { backgroundColor: COLORS.primary },
   label: { fontSize: 10, color: COLORS.textSecondary, marginTop: 6, textAlign: "center" },
-  labelActive: { color: COLORS.textPrimary, fontWeight: "700" },
+  labelActive: { color: COLORS.text, fontWeight: "700" },
 });
