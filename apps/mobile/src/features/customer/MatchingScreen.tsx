@@ -150,7 +150,7 @@ export function MatchingScreen({ route, navigation }: Props) {
   if (state === "no-match") {
     return (
       <Center flex={1} bg={COLORS.bg} p="$8">
-        <VStack alignItems="center" space="md">
+        <VStack alignItems="center" space="md" w="$full">
           <Center w={72} h={72} borderRadius="$full" bg="rgba(255, 77, 77, 0.16)">
             <MapPinOff size={32} color={COLORS.danger} />
           </Center>
