@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Center, FlatList, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { FileText, Upload } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -7,8 +7,10 @@ import { VerificationDocumentStatus, VerificationDocumentType } from "@motiq/typ
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerApi } from "../../api/providerApi";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Badge, Button, Chip, Input } from "../../components/ui";
+import { Badge, Button, Chip, EmptyState, Input } from "../../components/ui";
+import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { documentBadgeTone } from "./verificationBadgeTone";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "KycUpload">;
 
@@ -20,6 +22,23 @@ interface DocumentRow {
   status: VerificationDocumentStatus;
   submittedAt: string;
 }
+
+function titleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+const sectionTitle = {
+  fontFamily: FONTS.bodyBold,
+  fontSize: 12.5,
+  letterSpacing: 0.6,
+  color: COLORS.textSecondary,
+  textTransform: "uppercase" as const,
+  paddingHorizontal: 4,
+};
 
 /**
  * Ch98's KYC submission — previously API-only (POST /providers/me/
@@ -70,79 +89,81 @@ export function KycUploadScreen(_props: Props) {
   }
 
   return (
-    <FlatList
-      flex={1}
-      bg="$backgroundLight0"
-      data={documents}
-      keyExtractor={(item) => (item as DocumentRow).id}
-      ListHeaderComponent={
-        <VStack p="$6" space="md">
-          <VStack space="xs" mb="$2">
-            <Text size="xl" fontWeight="$extrabold" color="$textLight900">
-              Verification documents
-            </Text>
-            <Text color="$textLight500">Submit KYC documents to reach full verification.</Text>
-          </VStack>
+    <KeyboardScreen contentContainerStyle={{ gap: 20 }}>
+      <View style={{ gap: 4 }}>
+        <Text style={{ fontFamily: FONTS.display, fontSize: 26, color: COLORS.text }}>Verification documents</Text>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary }}>
+          Submit KYC documents to reach full verification.
+        </Text>
+      </View>
 
-          <VStack space="xs">
-            <Text size="sm" color="$textLight500">
-              Document type
-            </Text>
-            <HStack flexWrap="wrap" gap="$2">
-              {DOCUMENT_TYPES.map((type) => (
-                <Chip
-                  key={type}
-                  label={type.replace("_", " ")}
-                  selected={documentType === type}
-                  accessibilityLabel={`Document type: ${type}`}
-                  onPress={() => setDocumentType(type)}
-                />
-              ))}
-            </HStack>
-          </VStack>
+      <View style={{ gap: 10 }}>
+        <Text style={sectionTitle}>Document type</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {DOCUMENT_TYPES.map((type) => (
+            <Chip
+              key={type}
+              label={titleCase(type)}
+              selected={documentType === type}
+              accessibilityLabel={`Document type: ${type}`}
+              onPress={() => setDocumentType(type)}
+            />
+          ))}
+        </View>
+      </View>
 
-          <Input
-            label="Document reference / URL"
-            value={fileUrl}
-            onChangeText={setFileUrl}
-            placeholder="e.g. a link to your scanned document"
-          />
+      <Input
+        label="Document reference / URL"
+        value={fileUrl}
+        onChangeText={setFileUrl}
+        placeholder="e.g. a link to your scanned document"
+        autoCapitalize="none"
+      />
 
-          {status ? <Text color="$textLight700">{status}</Text> : null}
+      {status ? (
+        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{status}</Text>
+      ) : null}
 
-          <Button
-            label={submitting ? "Submitting…" : "Submit document"}
-            icon={Upload}
-            accessibilityLabel={A11Y_LABELS.uploadDocumentButton}
-            disabled={submitting}
-            loading={submitting}
-            onPress={handleSubmit}
-          />
+      <Button
+        label={submitting ? "Submitting…" : "Submit document"}
+        icon={Upload}
+        accessibilityLabel={A11Y_LABELS.uploadDocumentButton}
+        disabled={submitting}
+        loading={submitting}
+        onPress={handleSubmit}
+      />
 
-          <Text fontWeight="$bold" size="md" mt="$2">
-            Your submissions
-          </Text>
-        </VStack>
-      }
-      renderItem={({ item }: { item: unknown }) => {
-        const document = item as DocumentRow;
-        return (
-          <HStack px="$6" py="$3" borderBottomWidth={1} borderBottomColor="$borderLight200" justifyContent="space-between" alignItems="center">
-            <Text fontWeight="$semibold" textTransform="capitalize">
-              {document.documentType.replace("_", " ")}
-            </Text>
-            <Badge label={document.status} tone={documentBadgeTone(document.status)} />
-          </HStack>
-        );
-      }}
-      ListEmptyComponent={
-        <Center py="$8">
-          <FileText size={28} color="#A1A3AD" />
-          <Text color="$textLight500" textAlign="center" mt="$2">
-            No documents submitted yet.
-          </Text>
-        </Center>
-      }
-    />
+      <View style={{ gap: 10 }}>
+        <Text style={sectionTitle}>Your submissions</Text>
+        {documents.length === 0 ? (
+          <EmptyState icon={FileText} title="No documents yet" description="Submitted documents and their review status show up here." />
+        ) : (
+          <View style={{ backgroundColor: COLORS.surface, borderRadius: 22, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" }}>
+            {documents.map((document, index) => (
+              <View
+                key={document.id}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderBottomWidth: index === documents.length - 1 ? 0 : 1,
+                  borderBottomColor: COLORS.border,
+                }}
+              >
+                <View style={{ gap: 2, flexShrink: 1 }}>
+                  <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.text }}>{titleCase(document.documentType)}</Text>
+                  <Text style={{ fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textMuted }}>
+                    {new Date(document.submittedAt).toLocaleDateString([], { day: "numeric", month: "short" })}
+                  </Text>
+                </View>
+                <Badge label={document.status.toLowerCase()} tone={documentBadgeTone(document.status)} />
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </KeyboardScreen>
   );
 }

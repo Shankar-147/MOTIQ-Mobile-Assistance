@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { Center, Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
+import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { IndianRupee } from "lucide-react-native";
 import { PaymentStatus } from "@motiq/types";
-import { Badge, BadgeTone, Card, LoadingScreen } from "../../components/ui";
+import { Badge, BadgeTone, EmptyState, Skeleton, StatBlock } from "../../components/ui";
 import { providerApi } from "../../api/providerApi";
+import { COLORS, FONTS } from "../../theme/colors";
 
 interface RecentPayment {
   id: string;
@@ -29,6 +30,10 @@ const STATUS_TONE: Record<PaymentStatus, BadgeTone> = {
   [PaymentStatus.REFUNDED]: "neutral",
 };
 
+function money(value: string | number): string {
+  return `₹${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 /** Ch72's mobile Provider app earnings screen — new in this phase (no
  * earnings visibility existed anywhere before). See
  * PaymentService.getEarningsSummaryForProvider()'s comment: in a dev
@@ -47,58 +52,79 @@ export function EarningsScreen() {
   );
 
   if (!summary) {
-    return <LoadingScreen />;
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.bg, padding: 20, gap: 14 }}>
+        <Skeleton height={140} radius={22} />
+        <Skeleton height={64} radius={22} />
+        <Skeleton height={64} radius={22} />
+      </View>
+    );
   }
 
   return (
-    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
-      <VStack space="md">
-        <Card bg="$primary50" borderColor="$primary200">
-          <HStack alignItems="center" space="xs" mb="$1">
-            <IndianRupee size={16} color="#22E58B" />
-            <Text color="$primary700" fontWeight="$bold" size="xs">
-              TOTAL EARNINGS
-            </Text>
-          </HStack>
-          <Heading size="2xl">₹{summary.totalEarnings}</Heading>
-          <Text size="sm" color="$textLight500" mt="$1">
-            {summary.completedPayoutCount} paid job{summary.completedPayoutCount === 1 ? "" : "s"} · ₹
-            {summary.pendingAmount} pending
-          </Text>
-        </Card>
-
-        <Text size="sm" color="$textLight500" fontWeight="$semibold">
-          Recent payments
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ padding: 20, gap: 18 }}>
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 22,
+          borderWidth: 1,
+          borderColor: COLORS.accent,
+          padding: 18,
+          gap: 8,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <IndianRupee size={14} color={COLORS.accent} />
+          <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 12, letterSpacing: 1, color: COLORS.accent }}>TOTAL EARNINGS</Text>
+        </View>
+        <StatBlock label="Paid out" value={money(summary.totalEarnings)} accent />
+        <Text style={{ fontFamily: FONTS.body, fontSize: 13.5, color: COLORS.textSecondary }}>
+          {summary.completedPayoutCount} paid job{summary.completedPayoutCount === 1 ? "" : "s"} · {money(summary.pendingAmount)} pending
         </Text>
+      </View>
 
-        {summary.recentPayments.length === 0 ? (
-          <Center py="$8">
-            <Text color="$textLight500">No payments yet.</Text>
-          </Center>
-        ) : (
-          <Card p="$0">
-            {summary.recentPayments.map((payment, index) => (
-              <HStack
-                key={payment.id}
-                px="$4"
-                py="$3"
-                justifyContent="space-between"
-                alignItems="center"
-                borderBottomWidth={index === summary.recentPayments.length - 1 ? 0 : 1}
-                borderBottomColor="$borderLight200"
-              >
-                <VStack>
-                  <Text fontWeight="$semibold">₹{payment.amount}</Text>
-                  <Text size="sm" color="$textLight500">
-                    {new Date(payment.createdAt).toLocaleString()}
-                  </Text>
-                </VStack>
-                <Badge label={payment.status} tone={STATUS_TONE[payment.status]} />
-              </HStack>
-            ))}
-          </Card>
-        )}
-      </VStack>
+      <Text
+        style={{
+          fontFamily: FONTS.bodyBold,
+          fontSize: 12.5,
+          letterSpacing: 0.6,
+          color: COLORS.textSecondary,
+          textTransform: "uppercase",
+          paddingHorizontal: 4,
+        }}
+      >
+        Recent payments
+      </Text>
+
+      {summary.recentPayments.length === 0 ? (
+        <EmptyState icon={IndianRupee} title="No payments yet" description="Payments from completed jobs will show up here." />
+      ) : (
+        <View style={{ backgroundColor: COLORS.surface, borderRadius: 22, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" }}>
+          {summary.recentPayments.map((payment, index) => (
+            <View
+              key={payment.id}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: index === summary.recentPayments.length - 1 ? 0 : 1,
+                borderBottomColor: COLORS.border,
+              }}
+            >
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontFamily: FONTS.display, fontSize: 17, color: COLORS.text }}>{money(payment.amount)}</Text>
+                <Text style={{ fontFamily: FONTS.body, fontSize: 12.5, color: COLORS.textMuted }}>
+                  {new Date(payment.createdAt).toLocaleDateString([], { day: "numeric", month: "short" })},{" "}
+                  {new Date(payment.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </Text>
+              </View>
+              <Badge label={payment.status.toLowerCase()} tone={STATUS_TONE[payment.status]} />
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
