@@ -7,6 +7,7 @@ import { RequestService } from "../request/request.service";
 import { MatchingService } from "../matching/matching.service";
 import { PaymentService } from "../payment/payment.service";
 import { IdentityService } from "../identity/identity.service";
+import { SosService } from "../sos/sos.service";
 
 /**
  * Ch61's "provider-verification workflow backend" and, as of this phase,
@@ -26,6 +27,7 @@ export class AdminService {
     private readonly matchingService: MatchingService,
     private readonly paymentService: PaymentService,
     private readonly identityService: IdentityService,
+    private readonly sosService: SosService,
   ) {}
 
   async recordAuditLog(params: {
@@ -180,5 +182,17 @@ export class AdminService {
       });
     }
     return { delistedCount: delistedProviderIds.length, delistedProviderIds };
+  }
+
+  /** Ch137's admin dashboard metrics overview — assembles three daily
+   * series, each delegated to its owning module's service (ADR 0001:
+   * never query ServiceRequest/SosAlert/ProviderProfile directly here). */
+  async getMetricsOverview(days: number) {
+    const [requestsByDay, sosAlertsByDay, providerGrowth] = await Promise.all([
+      this.requestService.countRequestsByDay(days),
+      this.sosService.countAlertsByDay(days),
+      this.providerService.countProvidersByDay(days),
+    ]);
+    return { requestsByDay, sosAlertsByDay, providerGrowth };
   }
 }

@@ -116,4 +116,14 @@ export class AdminController {
   ) {
     return this.adminService.updateUserStatus(id, user.userId, dto.isActive);
   }
+
+  // Ch137's admin dashboard trend charts — Admin|Support read access,
+  // same level as the other admin read endpoints above.
+  @Get("metrics/overview")
+  @Roles(UserRole.ADMIN, UserRole.SUPPORT)
+  getMetricsOverview(@Query("days") daysParam?: string) {
+    const parsed = daysParam ? Number(daysParam) : 30;
+    const days = Number.isFinite(parsed) ? Math.min(Math.max(Math.trunc(parsed), 1), 90) : 30;
+    return this.adminService.getMetricsOverview(days);
+  }
 }

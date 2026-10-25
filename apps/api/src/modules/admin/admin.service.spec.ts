@@ -3,8 +3,8 @@ import { AdminService } from "./admin.service";
 describe("AdminService — refundPayment / updateUserStatus audit trail (Ch61)", () => {
   function buildService() {
     const prisma = { auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-1" }) } };
-    const providerService = {};
-    const requestService = {};
+    const providerService = { countProvidersByDay: jest.fn() };
+    const requestService = { countRequestsByDay: jest.fn() };
     const matchingService = {};
     const paymentService = {
       refundPayment: jest.fn().mockResolvedValue({ id: "pay-1", status: "REFUNDED" }),
@@ -13,6 +13,7 @@ describe("AdminService — refundPayment / updateUserStatus audit trail (Ch61)",
       findUserById: jest.fn().mockResolvedValue({ id: "user-1", isActive: true }),
       updateUserStatus: jest.fn().mockResolvedValue({ id: "user-1", isActive: false }),
     };
+    const sosService = { countAlertsByDay: jest.fn() };
 
     const service = new AdminService(
       prisma as never,
@@ -21,8 +22,9 @@ describe("AdminService — refundPayment / updateUserStatus audit trail (Ch61)",
       matchingService as never,
       paymentService as never,
       identityService as never,
+      sosService as never,
     );
-    return { service, prisma, paymentService, identityService };
+    return { service, prisma, paymentService, identityService, requestService, sosService, providerService };
   }
 
   it("refunds the payment and records an audit log entry", async () => {
@@ -56,6 +58,26 @@ describe("AdminService — refundPayment / updateUserStatus audit trail (Ch61)",
         entityId: "user-1",
         metadata: { from: true, to: false },
       }),
+    });
+  });
+
+  describe("getMetricsOverview", () => {
+    it("assembles all three series by delegating to their owning services", async () => {
+      const { service, requestService, sosService, providerService } = buildService();
+      requestService.countRequestsByDay.mockResolvedValue([{ date: "2026-01-01", count: 2 }]);
+      sosService.countAlertsByDay.mockResolvedValue([{ date: "2026-01-01", count: 0 }]);
+      providerService.countProvidersByDay.mockResolvedValue([{ date: "2026-01-01", cumulative: 5 }]);
+
+      const result = await service.getMetricsOverview(30);
+
+      expect(requestService.countRequestsByDay).toHaveBeenCalledWith(30);
+      expect(sosService.countAlertsByDay).toHaveBeenCalledWith(30);
+      expect(providerService.countProvidersByDay).toHaveBeenCalledWith(30);
+      expect(result).toEqual({
+        requestsByDay: [{ date: "2026-01-01", count: 2 }],
+        sosAlertsByDay: [{ date: "2026-01-01", count: 0 }],
+        providerGrowth: [{ date: "2026-01-01", cumulative: 5 }],
+      });
     });
   });
 });

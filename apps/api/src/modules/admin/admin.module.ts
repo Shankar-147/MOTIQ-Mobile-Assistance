@@ -3,6 +3,7 @@ import { ProviderModule } from "../provider/provider.module";
 import { RequestModule } from "../request/request.module";
 import { MatchingModule } from "../matching/matching.module";
 import { PaymentModule } from "../payment/payment.module";
+import { SosModule } from "../sos/sos.module";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 
@@ -17,7 +18,7 @@ import { AdminService } from "./admin.service";
  * Admin owns.
  */
 @Module({
-  imports: [ProviderModule, RequestModule, MatchingModule, PaymentModule],
+  imports: [ProviderModule, RequestModule, MatchingModule, PaymentModule, SosModule],
   controllers: [AdminController],
   providers: [AdminService],
   exports: [AdminService],
