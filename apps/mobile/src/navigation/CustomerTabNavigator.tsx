@@ -39,8 +39,8 @@ export function CustomerTabNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={CustomerHomeScreen} options={{ title: "MOTIQ", headerShown: false }} />
-      <Tab.Screen name="History" component={CustomerHistoryScreen} options={{ title: "Your requests" }} />
-      <Tab.Screen name="Profile" component={CustomerProfileScreen} options={{ title: "Profile" }} />
+      <Tab.Screen name="History" component={CustomerHistoryScreen} options={{ title: "Your requests", headerShown: false }} />
+      <Tab.Screen name="Profile" component={CustomerProfileScreen} options={{ title: "Profile", headerShown: false }} />
     </Tab.Navigator>
   );
 }

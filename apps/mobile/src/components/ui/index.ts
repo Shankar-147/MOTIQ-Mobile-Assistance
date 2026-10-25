@@ -14,3 +14,4 @@ export { BottomSheet } from "./BottomSheet";
 export { StepIndicator } from "./StepIndicator";
 export { StatBlock } from "./StatBlock";
 export { PulseDot } from "./PulseDot";
+export { SheetModal } from "./SheetModal";
