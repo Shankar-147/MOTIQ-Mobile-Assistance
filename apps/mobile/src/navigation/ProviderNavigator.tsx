@@ -1,3 +1,4 @@
+import { COLORS } from "../theme/colors";
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ProviderStackParamList } from "./types";
@@ -19,7 +20,7 @@ const Stack = createNativeStackNavigator<ProviderStackParamList>();
  */
 export function ProviderNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
+    <Stack.Navigator screenOptions={{ headerShown: true, headerStyle: { backgroundColor: COLORS.bg }, headerTintColor: COLORS.text, headerShadowVisible: false, contentStyle: { backgroundColor: COLORS.bg } }}>
       <Stack.Screen name="MainTabs" component={ProviderTabNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="JobOffer" component={JobOfferScreen} options={{ title: "New job offer" }} />
       <Stack.Screen name="ActiveJob" component={ActiveJobScreen} options={{ headerShown: false }} />

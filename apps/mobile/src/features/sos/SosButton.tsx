@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Vibration } from "react-native";
 import { HStack, Pressable, Spinner, Text } from "@gluestack-ui/themed";
 import { Siren } from "lucide-react-native";
 import * as Location from "expo-location";
@@ -18,6 +18,7 @@ export function SosButton({ serviceRequestId }: { serviceRequestId?: string }) {
   const [isSending, setIsSending] = useState(false);
 
   async function handlePress() {
+    Vibration.vibrate(30);
     Alert.alert("Send SOS alert?", "This immediately notifies MOTIQ's safety team.", [
       { text: "Cancel", style: "cancel" },
       { text: "Yes, send SOS", style: "destructive", onPress: sendAlert },
@@ -61,7 +62,7 @@ export function SosButton({ serviceRequestId }: { serviceRequestId?: string }) {
       minWidth={MIN_TOUCH_TARGET_SIZE}
       minHeight={MIN_TOUCH_TARGET_SIZE}
       borderRadius={MIN_TOUCH_TARGET_SIZE / 2}
-      bg="$error700"
+      bg="#FF4D4D"
       alignItems="center"
       justifyContent="center"
       px="$4"

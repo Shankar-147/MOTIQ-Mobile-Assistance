@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { LocateFixed } from "lucide-react-native";
-import { COLORS, SHADOW } from "../theme/colors";
+import { COLORS } from "../theme/colors";
 
 export interface GeoPoint {
   latitude: number;
@@ -119,7 +119,7 @@ export function LiveTrackingMap({
         style={[styles.recenterButton, { bottom: bottomInset }]}
         onPress={recenter}
       >
-        <LocateFixed size={20} color={COLORS.primary} />
+        <LocateFixed size={20} color={COLORS.accent} />
       </Pressable>
     </View>
   );
@@ -133,20 +133,21 @@ function buildTrackingMapHtml(pickup: GeoPoint): string {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; background: ${COLORS.bg}; }
+    .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7); }
     .pickup-pin {
       width: 36px; height: 36px; border-radius: 18px; background: ${COLORS.surface};
-      border: 2px solid ${COLORS.danger}; display: flex; align-items: center; justify-content: center;
+      border: 2px solid ${COLORS.accent}; display: flex; align-items: center; justify-content: center;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 18px;
     }
     .moving-wrap { display: flex; flex-direction: column; align-items: center; }
     .moving-pin {
-      width: 40px; height: 40px; border-radius: 20px; background: ${COLORS.primary};
-      border: 2px solid ${COLORS.surface}; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3); color: #FFFFFF; font-size: 18px;
+      width: 40px; height: 40px; border-radius: 20px; background: ${COLORS.accent};
+      border: 2px solid ${COLORS.bg}; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5); color: ${COLORS.accentInk}; font-size: 18px;
     }
     .moving-label {
       margin-top: 4px; background: ${COLORS.surface}; border-radius: 8px; padding: 2px 8px;
-      font-size: 11px; font-weight: 700; color: ${COLORS.textPrimary}; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-size: 11px; font-weight: 700; color: ${COLORS.text}; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
       white-space: nowrap;
     }
   </style>
@@ -157,7 +158,7 @@ function buildTrackingMapHtml(pickup: GeoPoint): string {
   <script>
     var PICKUP_LAT = ${pickup.latitude};
     var PICKUP_LNG = ${pickup.longitude};
-    var PRIMARY = ${JSON.stringify(COLORS.primary)};
+    var PRIMARY = ${JSON.stringify(COLORS.accent)};
 
     var map = L.map('map', { zoomControl: false, attributionControl: false })
       .setView([PICKUP_LAT, PICKUP_LNG], 15);
@@ -230,7 +231,7 @@ function buildTrackingMapHtml(pickup: GeoPoint): string {
       }
       var coords = points.map(function (p) { return [p.latitude, p.longitude]; });
       if (!routeLine) {
-        routeLine = L.polyline(coords, { color: PRIMARY, weight: 5 }).addTo(map);
+        routeLine = L.polyline(coords, { color: PRIMARY, weight: 4 }).addTo(map);
       } else {
         routeLine.setLatLngs(coords);
       }
@@ -272,8 +273,9 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    ...SHADOW,
   },
 });

@@ -1,4 +1,5 @@
 import React from "react";
+import { COLORS } from "../theme/colors";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Briefcase, House, UserRound } from "lucide-react-native";
 import { ProviderTabParamList } from "./types";
@@ -26,8 +27,12 @@ export function ProviderTabNavigator() {
       screenOptions={({ route }) => ({
         headerShown: true,
         headerTitleStyle: { fontWeight: "700" },
-        tabBarActiveTintColor: "#4F46E5",
-        tabBarInactiveTintColor: "#94A3B8",
+        headerStyle: { backgroundColor: COLORS.bg },
+        headerTintColor: COLORS.text,
+        headerShadowVisible: false,
+        tabBarStyle: { backgroundColor: COLORS.surface, borderTopColor: COLORS.border, borderTopWidth: 1 },
+        tabBarActiveTintColor: COLORS.accent,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarIcon: ({ color, size, focused }) => {
           const Icon = TAB_ICONS[route.name as keyof ProviderTabParamList];

@@ -1,3 +1,4 @@
+import { COLORS } from "../theme/colors";
 import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CustomerStackParamList } from "./types";
@@ -58,7 +59,7 @@ export function CustomerNavigator() {
   }
 
   return (
-    <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: true }}>
+    <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: true, headerStyle: { backgroundColor: COLORS.bg }, headerTintColor: COLORS.text, headerShadowVisible: false, contentStyle: { backgroundColor: COLORS.bg } }}>
       <Stack.Screen name="MainTabs" component={CustomerTabNavigator} options={{ headerShown: false }} />
       <Stack.Screen
         name="CreateRequest"
