@@ -53,6 +53,7 @@ export function CreateRequestScreen({ route, navigation }: Props) {
     Vibration.vibrate(30);
     setStatus(null);
     setSubmitting(true);
+    let dto: Parameters<typeof enqueueServiceRequest>[0] | null = null;
     try {
       const { status: permissionStatus } = await Location.requestForegroundPermissionsAsync();
       if (permissionStatus !== "granted") {
@@ -66,7 +67,7 @@ export function CreateRequestScreen({ route, navigation }: Props) {
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
       });
-      const dto = {
+      dto = {
         issueType,
         pickupLocation: {
           latitude: position.coords.latitude,
@@ -93,15 +94,16 @@ export function CreateRequestScreen({ route, navigation }: Props) {
       const created = response.data as { id: string };
       navigation.navigate("Matching", { serviceRequestId: created.id });
     } catch {
-      // A live-but-failing request (server error, not offline) still queues
-      // locally rather than losing the attempt.
-      await enqueueServiceRequest({
-        issueType,
-        pickupLocation: { latitude: 0, longitude: 0 },
-        description: description || undefined,
-        vehicleId,
-      });
-      setStatus("Couldn't reach MOTIQ right now — your request is saved and will retry automatically.");
+      if (dto) {
+        // A live-but-failing request (server error, not offline) still queues
+        // locally rather than losing the attempt — with the real pickup point.
+        await enqueueServiceRequest(dto);
+        setStatus("Couldn't reach MOTIQ right now — your request is saved and will retry automatically.");
+      } else {
+        // The failure happened before a pickup point existed (location
+        // unavailable), so there is nothing valid to queue.
+        setStatus("Couldn't determine your location. Check location services and try again.");
+      }
     } finally {
       setSubmitting(false);
     }
