@@ -11,6 +11,7 @@ import {
 import { ServiceAreaService } from "../service-area/service-area.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { assertValidTransition } from "./request-state-machine";
+import { bucketCountsByDay, DailyCount } from "../../common/metrics/bucket-by-day.util";
 
 @Injectable()
 export class RequestService {
@@ -173,5 +174,20 @@ export class RequestService {
       vehicleSnapshotYear: vehicle.year,
       vehicleSnapshotPlateNumber: vehicle.plateNumber,
     };
+  }
+
+  /** Ch137 admin dashboard metrics — daily ServiceRequest creation counts
+   * over the trailing `days`, for AdminService.getMetricsOverview(). */
+  async countRequestsByDay(days: number): Promise<DailyCount[]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const requests = await this.prisma.serviceRequest.findMany({
+      where: { createdAt: { gte: since } },
+      select: { createdAt: true },
+    });
+    return bucketCountsByDay(
+      requests.map((r) => r.createdAt),
+      since,
+      days,
+    );
   }
 }
