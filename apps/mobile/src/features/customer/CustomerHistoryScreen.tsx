@@ -12,6 +12,7 @@ import { requestApi } from "../../api/requestApi";
 import { Button, Chip, EmptyState, Skeleton } from "../../components/ui";
 import { RequestCard } from "../../components/RequestCard";
 import { COLORS, FONTS } from "../../theme/colors";
+import { groupByDate, timeLabel } from "../../utils/dateGroups";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<CustomerTabParamList, "History">,
@@ -64,26 +65,6 @@ function vehicleLabel(request: RequestRow): string | null {
   return model && model.toLowerCase() !== "unspecified" ? `${make} ${model}` : make;
 }
 
-function startOfDay(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
-function groupLabel(createdAt: string, now: Date): string {
-  const days = Math.round((startOfDay(now) - startOfDay(new Date(createdAt))) / 86_400_000);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return "This week";
-  return "Earlier";
-}
-
-function timeLabel(createdAt: string, now: Date): string {
-  const date = new Date(createdAt);
-  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
-  if (days <= 1) return time;
-  return `${date.toLocaleDateString([], { day: "numeric", month: "short" })}, ${time}`;
-}
-
 /** Ch71's mobile Customer app Requests tab — filter chips and cards grouped
  * by when the request was made. */
 export function CustomerHistoryScreen({ navigation }: Props) {
@@ -128,20 +109,15 @@ export function CustomerHistoryScreen({ navigation }: Props) {
     setCursor(body.pagination.nextCursor);
   }
 
-  const sections = useMemo(() => {
-    const now = new Date();
-    const order: string[] = [];
-    const byGroup = new Map<string, RequestRow[]>();
-    for (const request of requests.filter((r) => matchesFilter(r, filter))) {
-      const label = groupLabel(request.createdAt, now);
-      if (!byGroup.has(label)) {
-        byGroup.set(label, []);
-        order.push(label);
-      }
-      byGroup.get(label)!.push(request);
-    }
-    return order.map((title) => ({ title, data: byGroup.get(title)! }));
-  }, [requests, filter]);
+  const sections = useMemo(
+    () =>
+      groupByDate(
+        requests.filter((r) => matchesFilter(r, filter)),
+        (r) => r.createdAt,
+        new Date(),
+      ),
+    [requests, filter],
+  );
 
   const now = new Date();
 
