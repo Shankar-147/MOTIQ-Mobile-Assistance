@@ -40,9 +40,9 @@ export function ProviderTabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={GoOnlineScreen} options={{ title: "MOTIQ Provider" }} />
-      <Tab.Screen name="Jobs" component={ProviderJobsScreen} options={{ title: "Job history" }} />
-      <Tab.Screen name="Profile" component={ProviderProfileScreen} options={{ title: "Profile" }} />
+      <Tab.Screen name="Home" component={GoOnlineScreen} options={{ title: "MOTIQ Provider", headerShown: false }} />
+      <Tab.Screen name="Jobs" component={ProviderJobsScreen} options={{ title: "Job history", headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProviderProfileScreen} options={{ title: "Profile", headerShown: false }} />
     </Tab.Navigator>
   );
 }

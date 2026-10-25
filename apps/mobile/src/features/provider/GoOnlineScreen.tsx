@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
-import { CheckCircle2, IndianRupee, Plus, Star, Truck } from "lucide-react-native";
+import { Plus, Truck } from "lucide-react-native";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -16,13 +16,14 @@ import { startForegroundLocationTracking, stopLocationTracking } from "./locatio
 import { registerForPushNotifications } from "../../notifications/pushRegistration";
 import { usePendingOfferStore } from "../../store/pendingOfferStore";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Badge, Button } from "../../components/ui";
+import { Badge, BottomSheet, Button, PulseDot, SlideToConfirm } from "../../components/ui";
+import { MapBackdrop } from "../../components/MapBackdrop";
+import { OfflineBanner } from "../../components/OfflineBanner";
+import { JobCard } from "../../components/JobCard";
 import { verificationBadgeTone } from "./verificationBadgeTone";
 import { SosButton } from "../sos/SosButton";
-import { OnlineStatusHero } from "./OnlineStatusHero";
-import { StatChip } from "./StatChip";
-import { RecentJobRow } from "./RecentJobRow";
 import { formatRelativeTime } from "./relativeTime";
+import { useDeviceLocation } from "../customer/useDeviceLocation";
 import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = CompositeScreenProps<
@@ -32,6 +33,7 @@ type Props = CompositeScreenProps<
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const RECENT_JOBS_LIMIT = 3;
+const SHEET_SNAPS = [400, 660];
 
 interface OwnProfileSummary {
   businessName: string;
@@ -44,16 +46,26 @@ interface RecentJob {
   id: string;
   status: AssignmentStatus;
   offeredAt: string;
+  distanceMeters: number | null;
   serviceRequest: { issueType: IssueType };
 }
 
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.surfaceRaised, borderRadius: 16, padding: 12, gap: 2 }}>
+      <Text style={{ fontFamily: FONTS.body, fontSize: 12, color: COLORS.textSecondary }}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: FONTS.display, fontSize: 22, color: COLORS.text }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 /**
- * Ch72's Home tab — redesigned (see the "Provider Home Redesign" design
- * canvas) from a bare status button + unlabeled tabs into a real dashboard:
- * a gradient status hero with a live pulse while online, three glanceable
- * stat cards, and a richer recent-jobs list. The underlying presence/
- * tracking/heartbeat logic (mirroring the server's PresenceStatus state
- * machine, Ch76) is unchanged — this pass only replaces the presentation.
+ * Ch72's Home tab — map-first. The presence/tracking/heartbeat logic
+ * (mirroring the server's PresenceStatus state machine, Ch76) is unchanged;
+ * this is the presentation: the provider's position on a dark map, a
+ * slide-to-go-online control in a draggable sheet, stats and recent jobs.
  */
 export function GoOnlineScreen({ navigation }: Props) {
   const [online, setOnline] = useState(false);
@@ -65,6 +77,7 @@ export function GoOnlineScreen({ navigation }: Props) {
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const pendingOffer = usePendingOfferStore((state) => state.pendingOffer);
   const setPendingOffer = usePendingOfferStore((state) => state.setPendingOffer);
+  const { position } = useDeviceLocation();
 
   useEffect(() => {
     registerForPushNotifications().catch(() => undefined);
@@ -157,139 +170,113 @@ export function GoOnlineScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.logoMark}>
-            <Text style={styles.logoGlyph}>M</Text>
-          </View>
-          <View>
-            <Text style={styles.eyebrow}>MOTIQ PROVIDER</Text>
-            <View style={styles.nameRow}>
-              <Text style={styles.greeting} numberOfLines={1}>
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <MapBackdrop position={position} bottomInset={SHEET_SNAPS[0] + 16}>
+        <View pointerEvents="box-none" style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 1.5, color: COLORS.textSecondary }}>
+                MOTIQ PROVIDER
+              </Text>
+              <Text numberOfLines={1} style={{ fontFamily: FONTS.display, fontSize: 18, color: COLORS.text }}>
                 {profile?.businessName ?? "Loading…"}
               </Text>
-              {profile ? (
-                <Badge
-                  label={profile.verificationStatus.replace("_", " ")}
-                  tone={verificationBadgeTone(profile.verificationStatus)}
-                />
-              ) : null}
             </View>
+            <SosButton />
           </View>
+          <OfflineBanner />
         </View>
-        <SosButton />
-      </View>
+      </MapBackdrop>
 
-      <OnlineStatusHero online={online} submitting={submitting} onToggle={handleToggle} />
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      <View style={styles.statsRow}>
-        <StatChip
-          icon={Star}
-          iconColor={COLORS.warning}
-          iconBg="#FEF3C7"
-          value={profile ? Number(profile.ratingAverage) : 0}
-          format={(v) => v.toFixed(1)}
-          label="Rating"
-        />
-        <StatChip
-          icon={CheckCircle2}
-          iconColor={COLORS.success}
-          iconBg="#DCFCE7"
-          value={profile?.completedJobCount ?? 0}
-          label="Jobs done"
-        />
-        <StatChip
-          icon={IndianRupee}
-          iconColor={COLORS.primaryDark}
-          iconBg="#E0E7FF"
-          value={totalEarnings != null ? Number(totalEarnings) : 0}
-          format={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`}
-          label="This week"
-        />
-      </View>
-
-      {fleetVehicleCount === 0 ? (
-        <View style={styles.fleetCard}>
-          <View style={styles.fleetIconBadge}>
-            <Truck size={18} color={COLORS.primary} strokeWidth={1.8} />
-          </View>
-          <View style={styles.fleetTextCol}>
-            <Text style={styles.fleetTitle}>Add your first fleet vehicle</Text>
-            <Text style={styles.fleetSubtitle}>Keep details on file from your profile</Text>
-          </View>
-          <Button
-            label="Add"
-            variant="outline"
-            fullWidth={false}
-            icon={Plus}
-            accessibilityLabel={A11Y_LABELS.addFleetVehicleButton}
-            onPress={() => navigation.navigate("AddFleetVehicle", undefined)}
-          />
-        </View>
-      ) : null}
-
-      {recentJobs.length > 0 ? (
-        <View style={styles.jobsSection}>
-          <Text style={styles.sectionTitle}>Recent jobs</Text>
-          <View style={styles.jobsList}>
-            {recentJobs.map((job, index) => (
-              <RecentJobRow
-                key={job.id}
-                issueType={job.serviceRequest.issueType}
-                status={job.status}
-                relativeTime={formatRelativeTime(job.offeredAt)}
-                index={index}
+      <BottomSheet snapPoints={SHEET_SNAPS}>
+        <View style={{ gap: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+              {online ? <PulseDot /> : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textMuted }} />}
+              <Text style={{ fontFamily: FONTS.display, fontSize: 20, color: COLORS.text, flexShrink: 1 }}>
+                {online ? "You're online" : "You're offline"}
+              </Text>
+            </View>
+            {profile ? (
+              <Badge
+                label={profile.verificationStatus.replace("_", " ").toLowerCase()}
+                tone={verificationBadgeTone(profile.verificationStatus)}
               />
-            ))}
+            ) : null}
           </View>
+          <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textSecondary, marginTop: -8 }}>
+            {online ? "Waiting for nearby jobs. Keep the app open." : "Go online to start receiving job offers."}
+          </Text>
+
+          <SlideToConfirm
+            label={online ? "Slide to go offline" : "Slide to go online"}
+            tone={online ? "danger" : "accent"}
+            loading={submitting}
+            onConfirm={handleToggle}
+          />
+
+          {error ? (
+            <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.danger, textAlign: "center" }}>{error}</Text>
+          ) : null}
+
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <StatTile label="Rating" value={profile ? Number(profile.ratingAverage).toFixed(1) : "–"} />
+            <StatTile label="Jobs done" value={String(profile?.completedJobCount ?? 0)} />
+            <StatTile
+              label="Earned"
+              value={totalEarnings != null ? `₹${Math.round(Number(totalEarnings)).toLocaleString("en-IN")}` : "–"}
+            />
+          </View>
+
+          {fleetVehicleCount === 0 ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                backgroundColor: COLORS.surfaceRaised,
+                borderRadius: 18,
+                padding: 14,
+              }}
+            >
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.accentTint, alignItems: "center", justifyContent: "center" }}>
+                <Truck size={18} color={COLORS.accent} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.text }}>Add your first fleet vehicle</Text>
+                <Text style={{ fontFamily: FONTS.bodyRegular, fontSize: 12, color: COLORS.textSecondary, marginTop: 1 }}>
+                  Keep details on file from your profile
+                </Text>
+              </View>
+              <Button
+                label="Add"
+                variant="outline"
+                fullWidth={false}
+                icon={Plus}
+                accessibilityLabel={A11Y_LABELS.addFleetVehicleButton}
+                onPress={() => navigation.navigate("AddFleetVehicle", undefined)}
+              />
+            </View>
+          ) : null}
+
+          {recentJobs.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 12.5, letterSpacing: 0.6, color: COLORS.textSecondary, textTransform: "uppercase" }}>
+                Recent jobs
+              </Text>
+              {recentJobs.map((job) => (
+                <JobCard
+                  key={job.id}
+                  issueType={job.serviceRequest.issueType}
+                  status={job.status}
+                  distanceMeters={job.distanceMeters}
+                  timeLabel={formatRelativeTime(job.offeredAt)}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
-      ) : null}
-    </ScrollView>
+      </BottomSheet>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bgTint },
-  content: { padding: 20, paddingBottom: 40, gap: 20 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
-  logoMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoGlyph: { fontFamily: FONTS.display, fontSize: 15, color: "#FFFFFF" },
-  eyebrow: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 1.5, color: COLORS.textMuted },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 1, flexShrink: 1 },
-  greeting: { fontFamily: FONTS.bodyBold, fontSize: 14.5, color: COLORS.textPrimary, flexShrink: 1 },
-  errorText: { fontFamily: FONTS.bodyRegular, fontSize: 13, color: COLORS.danger, textAlign: "center" },
-  statsRow: { flexDirection: "row", gap: 10 },
-  fleetCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 14,
-  },
-  fleetIconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: COLORS.bgTint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fleetTextCol: { flex: 1 },
-  fleetTitle: { fontFamily: FONTS.bodyBold, fontSize: 13.5, color: COLORS.textPrimary },
-  fleetSubtitle: { fontFamily: FONTS.bodyRegular, fontSize: 11.5, color: COLORS.textMuted, marginTop: 1 },
-  jobsSection: { gap: 12 },
-  sectionTitle: { fontFamily: FONTS.display, fontSize: 15.5, color: COLORS.textPrimary },
-  jobsList: { gap: 8 },
-});
