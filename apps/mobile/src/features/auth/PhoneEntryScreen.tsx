@@ -32,7 +32,7 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
     <VStack flex={1} bg="$backgroundLight0" p="$6" space="md">
       <Center py="$6">
         <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
-          <Smartphone size={32} color="#4F46E5" />
+          <Smartphone size={32} color="#22E58B" />
         </Center>
         <Heading size="xl">What's your number?</Heading>
         <Text color="$textLight500" textAlign="center" mt="$1">

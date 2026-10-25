@@ -48,12 +48,12 @@ export function WelcomeScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={["#E0E7FF", "#EEF2FF", "#F8FAFF"]}
+        colors={["#0B0B0F", "#0F1A14", "#0B0B0F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <LinearGradient colors={["rgba(129,140,248,0.32)", "rgba(129,140,248,0)"]} style={styles.glowTopRight} />
+      <LinearGradient colors={["rgba(34,229,139,0.22)", "rgba(34,229,139,0)"]} style={styles.glowTopRight} />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: sheetHeight + 24 }]}
@@ -62,7 +62,7 @@ export function WelcomeScreen({ navigation }: Props) {
         <Text style={styles.eyebrow}>AI-POWERED ROADSIDE ASSISTANCE</Text>
         <View style={styles.wordmarkRow}>
           <Text style={[styles.wordmark, { color: COLORS.primary }]}>M</Text>
-          <Text style={[styles.wordmark, { color: COLORS.primaryDeep }]}>OTIQ</Text>
+          <Text style={[styles.wordmark, { color: COLORS.text }]}>OTIQ</Text>
         </View>
         <Text style={styles.tagline}>
           Roadside assistance, <Text style={{ color: COLORS.primary, fontFamily: FONTS.bodyBold }}>on demand.</Text>
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "#EEF2FF",
+    backgroundColor: COLORS.accentTint,
     alignItems: "center",
     justifyContent: "center",
   },

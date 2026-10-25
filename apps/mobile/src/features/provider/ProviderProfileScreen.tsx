@@ -90,7 +90,7 @@ export function ProviderProfileScreen({ navigation }: Props) {
         <HStack space="xl">
           <VStack alignItems="center">
             <HStack alignItems="center" space="xs">
-              <Star size={16} color="#D97706" fill="#D97706" />
+              <Star size={16} color="#FFB84D" fill="#FFB84D" />
               <Text fontWeight="$extrabold" size="xl">
                 {Number(profile.ratingAverage).toFixed(1)}
               </Text>

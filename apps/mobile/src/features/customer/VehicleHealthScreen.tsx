@@ -18,10 +18,10 @@ const STATUS_ICON_BG: Record<MaintenanceDueStatus, string> = {
 };
 
 const STATUS_ICON_COLOR: Record<MaintenanceDueStatus, string> = {
-  [MaintenanceDueStatus.OK]: "#16A34A",
-  [MaintenanceDueStatus.DUE_SOON]: "#D97706",
-  [MaintenanceDueStatus.OVERDUE]: "#DC2626",
-  [MaintenanceDueStatus.NOT_TRACKED]: "#64748B",
+  [MaintenanceDueStatus.OK]: "#22E58B",
+  [MaintenanceDueStatus.DUE_SOON]: "#FFB84D",
+  [MaintenanceDueStatus.OVERDUE]: "#FF4D4D",
+  [MaintenanceDueStatus.NOT_TRACKED]: "#A1A3AD",
 };
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "VehicleHealth">;
@@ -135,7 +135,7 @@ export function VehicleHealthScreen({ route, navigation }: Props) {
 
           {records.length === 0 ? (
             <Center py="$8">
-              <Wrench size={28} color="#94A3B8" />
+              <Wrench size={28} color="#A1A3AD" />
               <Text color="$textLight500" textAlign="center" mt="$2">
                 No service records yet.
               </Text>
@@ -162,7 +162,7 @@ export function VehicleHealthScreen({ route, navigation }: Props) {
                     </Text>
                   </VStack>
                   <HStack alignItems="center" space="xs">
-                    <Gauge size={14} color="#64748B" />
+                    <Gauge size={14} color="#A1A3AD" />
                     <Text size="sm" color="$textLight500">
                       {record.odometerKm.toLocaleString()} km
                     </Text>

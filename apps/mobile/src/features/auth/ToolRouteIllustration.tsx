@@ -24,7 +24,7 @@ export function ToolRouteIllustration() {
         <Path
           d="M78 96 C 108 62, 128 132, 168 92"
           fill="none"
-          stroke="#A5B4FC"
+          stroke="#6B6E7A"
           strokeWidth={3}
           strokeDasharray="2 10"
           strokeLinecap="round"
@@ -33,10 +33,10 @@ export function ToolRouteIllustration() {
 
         <Path
           d="M190 10 C208 10, 222 24, 222 42 C222 64, 190 88, 190 88 C190 88, 158 64, 158 42 C158 24, 172 10, 190 10 Z"
-          fill="#4F46E5"
+          fill="#22E58B"
         />
         <Ellipse cx={190} cy={41} rx={12} ry={12} fill="#FFFFFF" />
-        <Ellipse cx={190} cy={100} rx={16} ry={4.5} fill="#4F46E5" opacity={0.16} />
+        <Ellipse cx={190} cy={100} rx={16} ry={4.5} fill="#22E58B" opacity={0.16} />
       </Svg>
 
       <View
@@ -51,7 +51,7 @@ export function ToolRouteIllustration() {
         }}
       />
       <LinearGradient
-        colors={["#818CF8", "#4F46E5"]}
+        colors={["#22E58B", "#1BC474"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -63,14 +63,14 @@ export function ToolRouteIllustration() {
           borderRadius: 48,
           alignItems: "center",
           justifyContent: "center",
-          shadowColor: "#4338CA",
+          shadowColor: "#22E58B",
           shadowOffset: { width: 0, height: 10 },
           shadowOpacity: 0.3,
           shadowRadius: 16,
           elevation: 8,
         }}
       >
-        <Wrench size={42} color="#FFFFFF" strokeWidth={2} />
+        <Wrench size={42} color="#04210F" strokeWidth={2} />
       </LinearGradient>
     </View>
   );

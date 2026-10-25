@@ -78,7 +78,7 @@ export function ReminderSettingsScreen() {
             return (
               <Card key={preference.serviceType}>
                 <HStack alignItems="center" space="md">
-                  <Icon size={18} color="#4338CA" />
+                  <Icon size={18} color="#22E58B" />
                   <Text flex={1} fontWeight="$semibold" color="$textLight900" textTransform="capitalize">
                     {preference.serviceType.replace(/_/g, " ").toLowerCase()}
                   </Text>

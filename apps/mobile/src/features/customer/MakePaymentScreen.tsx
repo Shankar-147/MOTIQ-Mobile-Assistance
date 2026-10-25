@@ -97,13 +97,13 @@ export function MakePaymentScreen({ route, navigation }: Props) {
 
   if (phase === "failed") {
     return (
-      <Center flex={1} bg="$backgroundLight0" p="$6">
+      <Center flex={1} bg={COLORS.bg} p="$6">
         <VStack space="md" alignItems="center">
           <AlertTriangle size={40} color={COLORS.danger} />
-          <Heading size="lg" textAlign="center">
+          <Heading size="lg" textAlign="center" color={COLORS.text}>
             Payment couldn&apos;t be completed
           </Heading>
-          <Text color="$textLight500" textAlign="center">
+          <Text color={COLORS.textSecondary} textAlign="center">
             {errorMessage}
           </Text>
           <Button label="Go back" variant="outline" onPress={() => navigation.goBack()} />
@@ -165,7 +165,7 @@ function buildCheckoutHtml(payment: PaymentForCheckout): string {
           post({ type: "cancelled" });
         },
       },
-      theme: { color: ${JSON.stringify(COLORS.primary)} },
+      theme: { color: ${JSON.stringify(COLORS.accent)} },
     };
 
     try {

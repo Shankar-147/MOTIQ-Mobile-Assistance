@@ -84,7 +84,7 @@ export function OnlineStatusHero({ online, submitting, onToggle }: OnlineStatusH
 
   return (
     <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryDark, COLORS.primaryDeep]}
+      colors={[COLORS.surfaceRaised, COLORS.surface]}
       start={{ x: 0.1, y: 0 }}
       end={{ x: 0.9, y: 1 }}
       style={styles.card}
@@ -97,7 +97,7 @@ export function OnlineStatusHero({ online, submitting, onToggle }: OnlineStatusH
 
       <View style={styles.statusRow}>
         <View style={[styles.statusDot, { backgroundColor: online ? COLORS.electric : "#8B87A6" }]} />
-        <Text style={[styles.statusLabel, { color: online ? COLORS.electric : "#C7D2FE" }]}>
+        <Text style={[styles.statusLabel, { color: online ? COLORS.electric : "#A1A3AD" }]}>
           {online ? "LIVE · SEARCHING FOR JOBS" : "OFFLINE"}
         </Text>
       </View>
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   statusDot: { width: 9, height: 9, borderRadius: 5 },
   statusLabel: { fontFamily: FONTS.bodyBold, fontSize: 11.5, letterSpacing: 1 },
   heading: { fontFamily: FONTS.display, fontSize: 26, color: "#FFFFFF", marginTop: 10 },
-  subtext: { fontFamily: FONTS.bodyRegular, fontSize: 13.5, color: "#C7D2FE", marginTop: 4, maxWidth: 250, lineHeight: 19 },
+  subtext: { fontFamily: FONTS.bodyRegular, fontSize: 13.5, color: "#A1A3AD", marginTop: 4, maxWidth: 250, lineHeight: 19 },
   actionsRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 22 },
   pillWrap: { flex: 1 },
   pill: {

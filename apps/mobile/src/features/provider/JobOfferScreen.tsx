@@ -81,7 +81,7 @@ export function JobOfferScreen({ route, navigation }: Props) {
     <VStack flex={1} bg="$backgroundLight0" p="$6" justifyContent="center" space="md">
       <Center mb="$4">
         <Center w={80} h={80} borderRadius="$full" bg="$primary50" mb="$4">
-          <Icon size={36} color="#4F46E5" />
+          <Icon size={36} color="#22E58B" />
         </Center>
         <Heading size="2xl" textAlign="center">
           New job offer

@@ -137,7 +137,7 @@ export function KycUploadScreen(_props: Props) {
       }}
       ListEmptyComponent={
         <Center py="$8">
-          <FileText size={28} color="#94A3B8" />
+          <FileText size={28} color="#A1A3AD" />
           <Text color="$textLight500" textAlign="center" mt="$2">
             No documents submitted yet.
           </Text>

@@ -75,8 +75,8 @@ export function MyRatingsScreen() {
                   <Star
                     key={index}
                     size={16}
-                    color="#D97706"
-                    fill={index < rating.stars ? "#D97706" : "none"}
+                    color="#FFB84D"
+                    fill={index < rating.stars ? "#FFB84D" : "none"}
                   />
                 ))}
               </HStack>

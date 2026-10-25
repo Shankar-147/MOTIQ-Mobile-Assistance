@@ -7,7 +7,8 @@ import { IssueType, RequestStatus } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Badge, Button, Card, LoadingScreen } from "../../components/ui";
+import { Badge, Button, Card, LoadingScreen, StatBlock } from "../../components/ui";
+import { COLORS } from "../../theme/colors";
 import { statusBadgeTone } from "./statusBadgeTone";
 import { ISSUE_ICONS } from "../../theme/issueIcons";
 
@@ -70,48 +71,48 @@ export function RequestDetailScreen({ route, navigation }: Props) {
   const IssueIcon = ISSUE_ICONS[request.issueType];
 
   return (
-    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
+    <ScrollView flex={1} bg={COLORS.bg} contentContainerStyle={{ padding: 24 }}>
       <VStack space="md">
         <HStack alignItems="center" space="sm">
-          <IssueIcon size={22} color="#4F46E5" />
-          <Heading size="xl" textTransform="capitalize">
+          <IssueIcon size={22} color={COLORS.accent} />
+          <Heading size="xl" color={COLORS.text} textTransform="capitalize">
             {request.issueType.replace("_", " ")}
           </Heading>
         </HStack>
         <HStack alignItems="center" space="sm">
           <Badge label={request.status.replace(/_/g, " ")} tone={statusBadgeTone(request.status)} />
-          <Text size="sm" color="$textLight500">
+          <Text size="sm" color={COLORS.textSecondary}>
             {new Date(request.createdAt).toLocaleString()}
           </Text>
         </HStack>
 
         <Card>
           <HStack alignItems="center" space="xs" mb="$2">
-            <Car size={16} color="#64748B" />
-            <Text fontWeight="$bold">Vehicle</Text>
+            <Car size={16} color={COLORS.textSecondary} />
+            <Text fontWeight="$bold" color={COLORS.text}>Vehicle</Text>
           </HStack>
-          <Text>
+          <Text color={COLORS.text}>
             {request.vehicleSnapshotMake} {request.vehicleSnapshotModel} · {request.vehicleSnapshotPlateNumber}
           </Text>
         </Card>
 
         {request.description ? (
           <Card>
-            <Text fontWeight="$bold" mb="$2">
+            <Text fontWeight="$bold" color={COLORS.text} mb="$2">
               Description
             </Text>
-            <Text>{request.description}</Text>
+            <Text color={COLORS.text}>{request.description}</Text>
           </Card>
         ) : null}
 
         {payment ? (
           <Card>
             <HStack alignItems="center" space="xs" mb="$2">
-              <Receipt size={16} color="#64748B" />
-              <Text fontWeight="$bold">Receipt</Text>
+              <Receipt size={16} color={COLORS.textSecondary} />
+              <Text fontWeight="$bold" color={COLORS.text}>Receipt</Text>
             </HStack>
-            <Heading size="xl">₹{payment.totalAmount}</Heading>
-            <Text size="sm" color="$textLight500">
+            <StatBlock label="Total" value={`₹${payment.totalAmount}`} accent />
+            <Text size="sm" color={COLORS.textSecondary}>
               Payment status: {payment.status}
             </Text>
           </Card>

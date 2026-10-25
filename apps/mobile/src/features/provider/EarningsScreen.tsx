@@ -55,7 +55,7 @@ export function EarningsScreen() {
       <VStack space="md">
         <Card bg="$primary50" borderColor="$primary200">
           <HStack alignItems="center" space="xs" mb="$1">
-            <IndianRupee size={16} color="#4F46E5" />
+            <IndianRupee size={16} color="#22E58B" />
             <Text color="$primary700" fontWeight="$bold" size="xs">
               TOTAL EARNINGS
             </Text>
