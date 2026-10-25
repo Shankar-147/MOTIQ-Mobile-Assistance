@@ -64,3 +64,23 @@ describe("ProviderService.recomputeTrustScore (ML training-data instrumentation)
     expect(snapshotData.trustScore.toString()).toBe(updateData.trustScore.toString());
   });
 });
+
+describe("ProviderService.countProvidersByDay", () => {
+  it("includes providers created before the range in the first day's baseline", async () => {
+    const prisma = {
+      providerProfile: {
+        count: jest.fn().mockResolvedValue(5), // baseline, created before `since`
+        findMany: jest.fn().mockResolvedValue([{ createdAt: new Date() }]), // one created within range
+      },
+    };
+    const service = new ProviderService(prisma as never, {} as never);
+
+    const result = await service.countProvidersByDay(3);
+
+    expect(prisma.providerProfile.count).toHaveBeenCalledWith({
+      where: { verificationStatus: "FULLY_VERIFIED", createdAt: { lt: expect.any(Date) } },
+    });
+    expect(result[0].cumulative).toBe(5);
+    expect(result[result.length - 1].cumulative).toBe(6);
+  });
+});

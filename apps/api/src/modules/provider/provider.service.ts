@@ -13,6 +13,7 @@ import {
   VerificationDocumentType,
 } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { cumulativeCountsByDay, CumulativeCount } from "../../common/metrics/bucket-by-day.util";
 import {
   assertValidVerificationTransition,
   isEligibleForMatching,
@@ -436,5 +437,26 @@ export class ProviderService {
       delistedIds.push(provider.id);
     }
     return delistedIds;
+  }
+
+  /** Ch137 admin dashboard metrics — cumulative count of FULLY_VERIFIED
+   * providers by createdAt day, for AdminService.getMetricsOverview().
+   * Providers created before `since` are counted as the baseline so day
+   * one of the range isn't undercounted. */
+  async countProvidersByDay(days: number): Promise<CumulativeCount[]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const baselineCount = await this.prisma.providerProfile.count({
+      where: { verificationStatus: PrismaVerificationStatus.FULLY_VERIFIED, createdAt: { lt: since } },
+    });
+    const rows = await this.prisma.providerProfile.findMany({
+      where: { verificationStatus: PrismaVerificationStatus.FULLY_VERIFIED, createdAt: { gte: since } },
+      select: { createdAt: true },
+    });
+    return cumulativeCountsByDay(
+      rows.map((r) => r.createdAt),
+      since,
+      days,
+      baselineCount,
+    );
   }
 }
