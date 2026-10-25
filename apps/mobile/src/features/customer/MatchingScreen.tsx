@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -147,6 +147,13 @@ export function MatchingScreen({ route, navigation }: Props) {
     }
   }
 
+  function confirmCancel() {
+    Alert.alert("Cancel this request?", "We'll stop looking for a provider.", [
+      { text: "Keep waiting", style: "cancel" },
+      { text: "Cancel request", style: "destructive", onPress: handleCancel },
+    ]);
+  }
+
   if (state === "no-match") {
     return (
       <Center flex={1} bg={COLORS.bg} p="$8">
@@ -171,7 +178,7 @@ export function MatchingScreen({ route, navigation }: Props) {
       <MapBackdrop position={pickup} bottomInset={SHEET_SNAPS[0] + 16}>
         <View pointerEvents="box-none" style={{ gap: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <FloatingBackButton icon="close" onPress={handleCancel} />
+            <FloatingBackButton icon="close" onPress={confirmCancel} />
             <SosButton serviceRequestId={serviceRequestId} />
           </View>
           <OfflineBanner />

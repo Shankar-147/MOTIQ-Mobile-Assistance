@@ -22,7 +22,11 @@ export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, childre
   const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const maxHeight = snapPoints[snapPoints.length - 1];
-  const offsets = useMemo(() => snapPoints.map((h) => maxHeight - h), [snapPoints, maxHeight]);
+  // Keyed by value so callers can pass an inline array without re-creating the
+  // gesture handler (and resetting a drag in progress) on every render.
+  const snapKey = snapPoints.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const offsets = useMemo(() => snapPoints.map((h) => maxHeight - h), [snapKey, maxHeight]);
 
   const translateY = useSharedValue(offsets[initialSnap] ?? 0);
   const startY = useRef(0);
