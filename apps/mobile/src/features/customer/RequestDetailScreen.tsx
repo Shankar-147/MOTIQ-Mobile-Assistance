@@ -111,7 +111,7 @@ export function RequestDetailScreen({ route, navigation }: Props) {
               <Receipt size={16} color={COLORS.textSecondary} />
               <Text fontWeight="$bold" color={COLORS.text}>Receipt</Text>
             </HStack>
-            <StatBlock label="Total" value={`₹${payment.totalAmount}`} accent />
+            <StatBlock label="Total" value={`₹${Number(payment.totalAmount).toFixed(2)}`} accent />
             <Text size="sm" color={COLORS.textSecondary}>
               Payment status: {payment.status}
             </Text>

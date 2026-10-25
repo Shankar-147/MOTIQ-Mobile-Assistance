@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, PanResponder, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Keyboard, PanResponder, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../theme/colors";
@@ -19,6 +19,7 @@ const SPRING = { damping: 22, stiffness: 220, mass: 0.9 };
  * inputs stay visible, and skips animation under reduce-motion. */
 export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, children }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const maxHeight = snapPoints[snapPoints.length - 1];
   const offsets = useMemo(() => snapPoints.map((h) => maxHeight - h), [snapPoints, maxHeight]);
@@ -94,7 +95,12 @@ export function BottomSheet({ snapPoints, initialSnap = 0, onSnapChange, childre
     <Animated.View
       style={[
         styles.sheet,
-        { height: maxHeight + insets.bottom, bottom: keyboardHeight },
+        {
+          height: keyboardOpen
+            ? Math.min(maxHeight + insets.bottom, windowHeight - keyboardHeight - insets.top - 8)
+            : maxHeight + insets.bottom,
+          bottom: keyboardHeight,
+        },
         keyboardOpen ? null : animatedStyle,
       ]}
     >

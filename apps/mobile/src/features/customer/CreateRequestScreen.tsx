@@ -24,7 +24,7 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "CreateRequest">;
 
 const ISSUE_TYPES = Object.values(IssueType);
 const TOTAL_STEPS = 3;
-const SHEET_SNAPS = [560];
+const SHEET_SNAPS = [500];
 
 /** Ch71's mobile Customer app request-creation screen, as a 3-step sheet
  * (issue → vehicle and notes → confirm). The service area is derived by the

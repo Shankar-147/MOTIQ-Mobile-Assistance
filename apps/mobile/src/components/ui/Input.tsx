@@ -41,7 +41,7 @@ export function Input({
           <FormControlLabelText>{label}</FormControlLabelText>
         </FormControlLabel>
       ) : null}
-      <GSInput variant="outline" size="lg" minHeight={multiline ? 90 : Math.max(56, MIN_TOUCH_TARGET_SIZE)} borderRadius={16} bg={COLORS.surfaceRaised} borderColor={COLORS.border}>
+      <GSInput variant="outline" size="lg" h={multiline ? 110 : Math.max(56, MIN_TOUCH_TARGET_SIZE)} borderRadius={16} bg={COLORS.surfaceRaised} borderColor={COLORS.border}>
         <InputField
           value={value}
           onChangeText={onChangeText}

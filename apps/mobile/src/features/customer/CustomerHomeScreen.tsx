@@ -36,7 +36,7 @@ const TERMINAL_STATUSES = new Set<RequestStatus>([
 
 const RECENT_ACTIVITY_LIMIT = 3;
 const ISSUE_TYPES = Object.values(IssueType);
-const SHEET_SNAPS = [330, 600];
+const SHEET_SNAPS = [470, 660];
 
 interface RequestRow {
   id: string;
