@@ -11,6 +11,10 @@ export interface CreateOrderResult {
   orderId: string;
 }
 
+export interface RefundResult {
+  refundId: string;
+}
+
 export interface PaymentGatewayPort {
   /** False when no API keys are configured — see RazorpayGatewayAdapter's constructor. */
   isConfigured(): boolean;
@@ -23,6 +27,9 @@ export interface PaymentGatewayPort {
    * from the webhook's signature scheme) — see
    * razorpay-signature.util.ts's verifyRazorpayPaymentSignature doc comment. */
   verifyClientPaymentSignature(orderId: string, paymentId: string, signature: string): boolean;
+  /** Full refund of a captured payment, keyed by the gateway's own payment id
+   * (not the order id — Razorpay's refund API operates on payments). */
+  refundPayment(params: { gatewayPaymentId: string; amount: Money }): Promise<RefundResult>;
 }
 
 export const PAYMENT_GATEWAY = Symbol("PAYMENT_GATEWAY");

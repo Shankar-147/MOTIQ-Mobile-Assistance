@@ -5,7 +5,12 @@ import { AssignmentStatus, PaymentStatus as PrismaPaymentStatus, Prisma } from "
 import { RequestStatus } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { calculateCommissionSplit, money } from "../../common/money";
-import { DomainEvents, PaymentSettledEvent, RequestCompletedEvent } from "../../common/events/domain-events";
+import {
+  DomainEvents,
+  PaymentRefundedEvent,
+  PaymentSettledEvent,
+  RequestCompletedEvent,
+} from "../../common/events/domain-events";
 import { PricingService } from "../pricing/pricing.service";
 import { CreateCommissionRateDto } from "./dto/create-commission-rate.dto";
 import { PAYMENT_GATEWAY, PaymentGatewayPort } from "./gateways/payment-gateway.port";
@@ -165,7 +170,7 @@ export class PaymentService {
 
     const payload = JSON.parse(rawBody.toString("utf8")) as {
       event?: string;
-      payload?: { payment?: { entity?: { order_id?: string } } };
+      payload?: { payment?: { entity?: { id?: string; order_id?: string } } };
     };
     const orderId = payload.payload?.payment?.entity?.order_id;
     if (!orderId) {
@@ -178,9 +183,10 @@ export class PaymentService {
     }
 
     if (payload.event === "payment.captured") {
+      const gatewayPaymentId = payload.payload?.payment?.entity?.id;
       await this.prisma.payment.update({
         where: { id: payment.id },
-        data: { status: PrismaPaymentStatus.CAPTURED },
+        data: { status: PrismaPaymentStatus.CAPTURED, ...(gatewayPaymentId ? { gatewayPaymentId } : {}) },
       });
     } else if (payload.event === "payment.failed") {
       await this.prisma.payment.update({
@@ -250,8 +256,60 @@ export class PaymentService {
 
     return this.prisma.payment.update({
       where: { id: payment.id },
-      data: { status: PrismaPaymentStatus.CAPTURED },
+      data: { status: PrismaPaymentStatus.CAPTURED, gatewayPaymentId: razorpayPaymentId },
     });
+  }
+
+  /**
+   * Admin-initiated full refund of a CAPTURED payment (Ch61's higher-stakes
+   * money-moving action, same posture as dispatchOverride — see
+   * AdminController). Only ever a full refund; partial refunds aren't
+   * specified by any binding chapter, so they're left as future work rather
+   * than invented here. Idempotent: refunding an already-REFUNDED payment is
+   * a no-op, not an error, matching the pattern used throughout this module.
+   */
+  async refundPayment(serviceRequestId: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { serviceRequestId } });
+    if (!payment) {
+      throw new NotFoundException(`No Payment found for ServiceRequest ${serviceRequestId}`);
+    }
+    if (payment.status === PrismaPaymentStatus.REFUNDED) {
+      return payment; // Already refunded — idempotent no-op.
+    }
+    if (payment.status !== PrismaPaymentStatus.CAPTURED) {
+      throw new BadRequestException(
+        `Payment ${payment.id} is ${payment.status}, not CAPTURED — only a captured payment can be refunded.`,
+      );
+    }
+
+    if (!this.gateway.isConfigured()) {
+      // No live gateway to call — degrade to a logged, manually-reconciled
+      // refund record, the same posture as every other unconfigured
+      // third-party adapter in this codebase (Ch32).
+      this.logger.warn(
+        `Payment gateway not configured — Payment ${payment.id} marked REFUNDED with no gateway call (Ch32).`,
+      );
+    } else {
+      if (!payment.gatewayPaymentId) {
+        throw new BadRequestException(
+          `Payment ${payment.id} has no recorded gateway payment id — cannot issue a gateway refund.`,
+        );
+      }
+      await this.gateway.refundPayment({
+        gatewayPaymentId: payment.gatewayPaymentId,
+        amount: payment.totalAmount,
+      });
+    }
+
+    const updated = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PrismaPaymentStatus.REFUNDED },
+    });
+    this.events.emit(DomainEvents.PaymentRefunded, {
+      serviceRequestId,
+      paymentId: payment.id,
+    } satisfies PaymentRefundedEvent);
+    return updated;
   }
 
   /**

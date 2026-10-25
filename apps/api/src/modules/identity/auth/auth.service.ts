@@ -100,6 +100,9 @@ export class AuthService {
     });
 
     if (existingUser) {
+      if (!existingUser.isActive) {
+        throw new UnauthorizedException(`Account for ${phone} has been deactivated. Contact support.`);
+      }
       const profileId =
         existingUser.role === PrismaUserRole.CUSTOMER
           ? existingUser.customerProfile?.id
@@ -175,7 +178,7 @@ export class AuthService {
     // is wrong — never let a login endpoint reveal which one it was.
     const invalidCredentials = () => new UnauthorizedException("Invalid credentials.");
 
-    if (!user || !user.passwordHash || !user.adminProfile) {
+    if (!user || !user.passwordHash || !user.adminProfile || !user.isActive) {
       throw invalidCredentials();
     }
     const passwordMatches = await comparePassword(dto.password, user.passwordHash);
@@ -266,6 +269,9 @@ export class AuthService {
     });
 
     const { user } = stored;
+    if (!user.isActive) {
+      throw new UnauthorizedException("This account has been deactivated.");
+    }
     const profileId =
       user.customerProfile?.id ?? user.providerProfile?.id ?? user.adminProfile?.id;
     if (!profileId) {

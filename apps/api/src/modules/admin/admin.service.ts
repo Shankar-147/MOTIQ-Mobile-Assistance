@@ -5,6 +5,8 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { ProviderService } from "../provider/provider.service";
 import { RequestService } from "../request/request.service";
 import { MatchingService } from "../matching/matching.service";
+import { PaymentService } from "../payment/payment.service";
+import { IdentityService } from "../identity/identity.service";
 
 /**
  * Ch61's "provider-verification workflow backend" and, as of this phase,
@@ -22,6 +24,8 @@ export class AdminService {
     private readonly providerService: ProviderService,
     private readonly requestService: RequestService,
     private readonly matchingService: MatchingService,
+    private readonly paymentService: PaymentService,
+    private readonly identityService: IdentityService,
   ) {}
 
   async recordAuditLog(params: {
@@ -130,6 +134,37 @@ export class AdminService {
       metadata: { providerProfileId, assignmentId: assignment.id, reason },
     });
     return assignment;
+  }
+
+  /** Ch61's admin-initiated refund — see PaymentService.refundPayment()'s
+   * doc comment for why it's deliberately full-refund-only. Money-moving,
+   * Admin-only, same posture as dispatchOverride above. */
+  async refundPayment(serviceRequestId: string, adminUserId: string, reason?: string) {
+    const payment = await this.paymentService.refundPayment(serviceRequestId);
+    await this.recordAuditLog({
+      actorUserId: adminUserId,
+      action: "PAYMENT_REFUNDED",
+      entityType: "Payment",
+      entityId: payment.id,
+      metadata: { serviceRequestId, reason },
+    });
+    return payment;
+  }
+
+  /** Ch61/Ch137's account suspension — a higher-stakes action than a
+   * provider-tier change (it blocks the account outright, any role), so
+   * Admin-only (see AdminController). */
+  async updateUserStatus(userId: string, adminUserId: string, isActive: boolean) {
+    const before = await this.identityService.findUserById(userId);
+    const updated = await this.identityService.updateUserStatus(userId, isActive);
+    await this.recordAuditLog({
+      actorUserId: adminUserId,
+      action: isActive ? "USER_REACTIVATED" : "USER_SUSPENDED",
+      entityType: "User",
+      entityId: userId,
+      metadata: { from: before.isActive, to: isActive },
+    });
+    return updated;
   }
 
   /** Manual stand-in for Ch62's future recurring scheduler — see

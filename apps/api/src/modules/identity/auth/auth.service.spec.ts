@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { UserRole } from "@motiq/types";
 import { AuthService } from "./auth.service";
 import { hashOtpCode } from "./otp.util";
@@ -96,5 +96,19 @@ describe("AuthService.verifyOtp (Ch33 — OTP vs. registration-data failure mode
       where: { id: "challenge-1" },
       data: { consumedAt: expect.any(Date) },
     });
+  });
+
+  it("rejects login for a deactivated existing account (Ch61 admin suspension)", async () => {
+    const { service, prisma } = buildService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      role: "CUSTOMER",
+      isActive: false,
+      customerProfile: { id: "profile-1" },
+      providerProfile: null,
+    });
+
+    await expect(service.verifyOtp({ phone, code })).rejects.toThrow(UnauthorizedException);
+    expect(prisma.otpChallenge.update).not.toHaveBeenCalled();
   });
 });

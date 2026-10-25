@@ -14,6 +14,7 @@ export const DomainEvents = {
   ProviderTimedOut: "provider.timed-out",
   MatchingFailed: "matching.failed",
   PaymentSettled: "payment.settled",
+  PaymentRefunded: "payment.refunded",
   RatingSubmitted: "rating.submitted",
 } as const;
 
@@ -46,6 +47,11 @@ export interface MatchingFailedEvent {
 }
 
 export interface PaymentSettledEvent {
+  serviceRequestId: string;
+  paymentId: string;
+}
+
+export interface PaymentRefundedEvent {
   serviceRequestId: string;
   paymentId: string;
 }

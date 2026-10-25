@@ -12,4 +12,12 @@ export class IdentityService {
     }
     return user;
   }
+
+  /** Admin-triggered account suspend/reactivate (Ch61, Ch137 Admin Console).
+   * Enforced on every subsequent request by JwtStrategy, and on every
+   * token-issuing login path in AuthService — not just advisory metadata. */
+  async updateUserStatus(id: string, isActive: boolean) {
+    await this.findUserById(id);
+    return this.prisma.user.update({ where: { id }, data: { isActive } });
+  }
 }

@@ -2,7 +2,14 @@ import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { NotificationChannel, NotificationDeliveryTier } from "@motiq/types";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { DomainEvents, ProviderAssignedEvent, PaymentSettledEvent, RatingSubmittedEvent, RequestCreatedEvent } from "../../common/events/domain-events";
+import {
+  DomainEvents,
+  ProviderAssignedEvent,
+  PaymentSettledEvent,
+  PaymentRefundedEvent,
+  RatingSubmittedEvent,
+  RequestCreatedEvent,
+} from "../../common/events/domain-events";
 import { NotificationService } from "./notification.service";
 
 /**
@@ -77,6 +84,26 @@ export class NotificationEventListener {
       deliveryTier: NotificationDeliveryTier.BEST_EFFORT,
       title: "Payment complete",
       body: "Your payment for this service request has been processed. Thanks for riding with MOTIQ.",
+      payload: { serviceRequestId: event.serviceRequestId, paymentId: event.paymentId },
+    });
+  }
+
+  @OnEvent(DomainEvents.PaymentRefunded)
+  async onPaymentRefunded(event: PaymentRefundedEvent) {
+    const request = await this.prisma.serviceRequest.findUnique({
+      where: { id: event.serviceRequestId },
+      include: { customerProfile: true },
+    });
+    if (!request) {
+      return;
+    }
+    await this.safeSend({
+      userId: request.customerProfile.userId,
+      channel: NotificationChannel.PUSH,
+      category: "payment_refunded",
+      deliveryTier: NotificationDeliveryTier.BEST_EFFORT,
+      title: "Payment refunded",
+      body: "Your payment for this service request has been refunded.",
       payload: { serviceRequestId: event.serviceRequestId, paymentId: event.paymentId },
     });
   }

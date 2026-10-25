@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import Razorpay from "razorpay";
 import type { Money } from "../../../common/money";
-import { CreateOrderResult, PaymentGatewayPort } from "./payment-gateway.port";
+import { CreateOrderResult, PaymentGatewayPort, RefundResult } from "./payment-gateway.port";
 import { verifyRazorpayPaymentSignature } from "./razorpay-signature.util";
 
 /**
@@ -71,5 +71,20 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
       receipt: params.receipt,
     });
     return { orderId: order.id };
+  }
+
+  async refundPayment(params: { gatewayPaymentId: string; amount: Money }): Promise<RefundResult> {
+    if (!this.client) {
+      throw new Error("RazorpayGatewayAdapter is not configured — check isConfigured() first.");
+    }
+    const amountInPaise = params.amount
+      .mul(100)
+      .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+      .toNumber();
+
+    const refund = await this.client.payments.refund(params.gatewayPaymentId, {
+      amount: amountInPaise,
+    });
+    return { refundId: refund.id };
   }
 }

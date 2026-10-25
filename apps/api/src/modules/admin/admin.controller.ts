@@ -8,6 +8,8 @@ import { AdminService } from "./admin.service";
 import { ReviewVerificationDocumentDto } from "./dto/review-verification-document.dto";
 import { UpdateVerificationStatusDto } from "./dto/update-verification-status.dto";
 import { DispatchOverrideDto } from "./dto/dispatch-override.dto";
+import { RefundPaymentDto } from "./dto/refund-payment.dto";
+import { UpdateUserStatusDto } from "./dto/update-user-status.dto";
 
 /** Ch61's Admin & Operations Service — the provider-verification workflow
  * backend (Ch98). Document review is Admin|Support (day-to-day ops); tier
@@ -89,5 +91,29 @@ export class AdminController {
     @Body() dto: DispatchOverrideDto,
   ) {
     return this.adminService.dispatchOverride(id, dto.providerProfileId, user.userId, dto.reason);
+  }
+
+  // Ch61's admin-initiated refund — money-moving, Admin-only, same posture
+  // as dispatch-override above.
+  @Post("payments/:serviceRequestId/refund")
+  @Roles(UserRole.ADMIN)
+  refundPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("serviceRequestId") serviceRequestId: string,
+    @Body() dto: RefundPaymentDto,
+  ) {
+    return this.adminService.refundPayment(serviceRequestId, user.userId, dto.reason);
+  }
+
+  // Ch61/Ch137's account suspension — blocks the account outright (any
+  // role), so Admin-only, same posture as verification-status transitions.
+  @Patch("users/:id/status")
+  @Roles(UserRole.ADMIN)
+  updateUserStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateUserStatusDto,
+  ) {
+    return this.adminService.updateUserStatus(id, user.userId, dto.isActive);
   }
 }

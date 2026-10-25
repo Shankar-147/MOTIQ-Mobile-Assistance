@@ -681,6 +681,7 @@ model Payment {
   providerPayoutAmount Decimal        @db.Decimal(12, 2)
   status               PaymentStatus  @default(PENDING)
   gatewayReference     String?
+  gatewayPaymentId     String?
   idempotencyKey       String         @unique
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
