@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Center, Heading, Text, VStack } from "@gluestack-ui/themed";
-import { Smartphone } from "lucide-react-native";
+import { Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { UserRole } from "@motiq/types";
 import { AuthStackParamList } from "../../navigation/types";
 import { authApi } from "../../api/authApi";
 import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Button, Input } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "PhoneEntry">;
 
@@ -23,26 +24,24 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
       await authApi.requestOtp(phone, email);
       navigation.navigate("OtpVerify", { phone, intendedRole });
     } catch {
-      setError("Couldn't send a verification code. Check the number/email and try again.");
+      setError("Couldn't send a verification code. Check the number and email and try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <KeyboardScreen>
-      <VStack space="md">
-      <Center py="$6">
-        <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
-          <Smartphone size={32} color="#22E58B" />
-        </Center>
-        <Heading size="xl">What's your number?</Heading>
-        <Text color="$textLight500" textAlign="center" mt="$1">
-          We'll email you a one-time code to sign in.
+    <KeyboardScreen contentContainerStyle={{ gap: 20 }}>
+      <View style={{ gap: 8, paddingTop: 8 }}>
+        <Text style={{ fontFamily: FONTS.display, fontSize: 30, color: COLORS.text }}>
+          {intendedRole === UserRole.PROVIDER ? "Provider sign-in" : "Sign in"}
         </Text>
-      </Center>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 15, color: COLORS.textSecondary, lineHeight: 22 }}>
+          Enter your number and email. We'll send a one-time code to your email.
+        </Text>
+      </View>
 
-      <Input label="Phone number" value={phone} onChangeText={setPhone} placeholder="+91XXXXXXXXXX" />
+      <Input label="Phone number" value={phone} onChangeText={setPhone} placeholder="+91XXXXXXXXXX" keyboardType="phone-pad" />
       <Input
         label="Email"
         value={email}
@@ -51,11 +50,9 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      {error ? (
-        <Text color="$error600" size="sm">
-          {error}
-        </Text>
-      ) : null}
+
+      {error ? <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{error}</Text> : null}
+
       <Button
         label={submitting ? "Sending…" : "Send code"}
         accessibilityLabel="Send verification code"
@@ -63,7 +60,6 @@ export function PhoneEntryScreen({ route, navigation }: Props) {
         loading={submitting}
         onPress={handleSubmit}
       />
-      </VStack>
     </KeyboardScreen>
   );
 }

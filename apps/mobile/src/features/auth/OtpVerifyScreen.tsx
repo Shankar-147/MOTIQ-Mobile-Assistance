@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Center, Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
-import { ShieldCheck } from "lucide-react-native";
+import { Text, View } from "react-native";
 import axios from "axios";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiErrorEnvelope, UserRole } from "@motiq/types";
@@ -10,6 +9,7 @@ import { serviceAreaApi } from "../../api/serviceAreaApi";
 import { useAuthStore } from "../../store/authStore";
 import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Button, Chip, Input } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "OtpVerify">;
 
@@ -94,31 +94,33 @@ export function OtpVerifyScreen({ route }: Props) {
   }
 
   return (
-    <KeyboardScreen>
-      <VStack space="md">
-      <Center py="$6">
-        <Center w={72} h={72} borderRadius="$full" bg="$primary50" mb="$4">
-          <ShieldCheck size={32} color="#22E58B" />
-        </Center>
-        <Heading size="xl">Enter your code</Heading>
-        <Text color="$textLight500" textAlign="center" mt="$1">
-          Sent to {phone}
+    <KeyboardScreen contentContainerStyle={{ gap: 20 }}>
+      <View style={{ gap: 8, paddingTop: 8 }}>
+        <Text style={{ fontFamily: FONTS.display, fontSize: 30, color: COLORS.text }}>Enter your code</Text>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 15, color: COLORS.textSecondary, lineHeight: 22 }}>
+          We sent a 6-digit code for {phone}.
         </Text>
-      </Center>
+      </View>
 
-      <Input label="Verification code" value={code} onChangeText={setCode} placeholder="6-digit code" />
+      <Input
+        label="Verification code"
+        value={code}
+        onChangeText={setCode}
+        placeholder="6-digit code"
+        keyboardType="number-pad"
+      />
 
       {intendedRole === UserRole.CUSTOMER ? (
         <Input label="Your name" value={displayName} onChangeText={setDisplayName} placeholder="New accounts only" />
       ) : (
         <>
           <Input label="Business name" value={businessName} onChangeText={setBusinessName} placeholder="New accounts only" />
-          <VStack space="xs">
-            <Text size="sm" color="$textLight500">
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 13, color: COLORS.textSecondary }}>
               Service area (new accounts only)
             </Text>
             {serviceAreas.length > 0 ? (
-              <HStack flexWrap="wrap" gap="$2">
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {serviceAreas.map((area) => (
                   <Chip
                     key={area.id}
@@ -128,19 +130,15 @@ export function OtpVerifyScreen({ route }: Props) {
                     onPress={() => setServiceAreaId(area.id)}
                   />
                 ))}
-              </HStack>
+              </View>
             ) : (
-              <Text color="$textLight500">Loading service areas…</Text>
+              <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.textMuted }}>Loading service areas…</Text>
             )}
-          </VStack>
+          </View>
         </>
       )}
 
-      {error ? (
-        <Text color="$error600" size="sm">
-          {error}
-        </Text>
-      ) : null}
+      {error ? <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{error}</Text> : null}
 
       <Button
         label={submitting ? "Verifying…" : "Verify"}
@@ -149,7 +147,6 @@ export function OtpVerifyScreen({ route }: Props) {
         loading={submitting}
         onPress={handleVerify}
       />
-      </VStack>
     </KeyboardScreen>
   );
 }

@@ -1,215 +1,135 @@
 import React, { useState } from "react";
-import { LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Clock3, MapPinned, Send, ShieldCheck, Wrench } from "lucide-react-native";
+import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { UserRole } from "@motiq/types";
 import { AuthStackParamList } from "../../navigation/types";
-import { Badge, Button, Chip } from "../../components/ui";
+import { authApi } from "../../api/authApi";
+import { useAuthStore } from "../../store/authStore";
+import { Button } from "../../components/ui";
 import { COLORS, FONTS } from "../../theme/colors";
 import { LANGUAGES } from "../../i18n/translations";
 import { useLanguage } from "../../i18n/LanguageContext";
-import { ToolRouteIllustration } from "./ToolRouteIllustration";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Welcome">;
 
-const VALUE_PROPS = [
-  { key: "valuePropVerified", icon: ShieldCheck },
-  { key: "valuePropTracking", icon: MapPinned },
-  { key: "valuePropAvailability", icon: Clock3 },
-] as const;
-
-// A reasonable guess for the action sheet's height before its real one is
-// measured on first layout — avoids a flash of scroll content hidden under
-// it, without hardcoding a number that silently drifts from the real sheet.
-const ESTIMATED_SHEET_HEIGHT = 230;
+// Presentation tool: only builds made with EXPO_PUBLIC_DEMO_TOOLS=true show the demo sign-in.
+const DEMO_TOOLS = process.env.EXPO_PUBLIC_DEMO_TOOLS === "true";
 
 /**
- * Ch65's first screen. Composed as two clearly separated zones — a gradient
- * hero (brand, illustration, trust signals) and a white bottom sheet
- * (consent + the two role actions) — rather than one long stack of
- * similarly-styled blocks. The sheet's real height is measured via onLayout
- * and fed back into the ScrollView's bottom padding, so its content can
- * never end up hidden or overlapped underneath the sheet regardless of
- * screen size or font-scale settings (a fixed guessed padding was the bug in
- * an earlier pass of this screen). ToolRouteIllustration (wrench badge +
- * dotted route + pin) replaced an earlier car render per direct feedback;
- * the value-prop strip and language picker (Ch16) share one opaque card
- * with a divider instead of floating as separate translucent elements.
+ * Ch65's first screen — deliberately almost empty: the name, one line, one primary action and a
+ * quiet link for providers. Language (Ch16) is three small text toggles; nothing else competes
+ * for attention.
  */
 export function WelcomeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { language, setLanguage, t } = useLanguage();
-  const [sheetHeight, setSheetHeight] = useState(ESTIMATED_SHEET_HEIGHT);
+  const setSession = useAuthStore((state) => state.setSession);
+  const [demoBusy, setDemoBusy] = useState<UserRole | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
-  const onSheetLayout = (event: LayoutChangeEvent) => {
-    setSheetHeight(event.nativeEvent.layout.height);
-  };
+  async function demoSignIn(role: UserRole.CUSTOMER | UserRole.PROVIDER) {
+    setDemoBusy(role);
+    setDemoError(null);
+    try {
+      const response = await authApi.demoLogin(role);
+      await setSession({ accessToken: response.data.accessToken, refreshToken: response.data.refreshToken });
+    } catch {
+      setDemoError("Demo sign-in failed — is the server reachable?");
+    } finally {
+      setDemoBusy(null);
+    }
+  }
 
   return (
-    <View style={styles.screen}>
-      <LinearGradient
-        colors={["#0B0B0F", "#0F1A14", "#0B0B0F"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient colors={["rgba(34,229,139,0.22)", "rgba(34,229,139,0)"]} style={styles.glowTopRight} />
+    <View style={{ flex: 1, backgroundColor: COLORS.bg, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20, paddingHorizontal: 24 }}>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 4 }}>
+        {LANGUAGES.map(({ code, label }) => (
+          <Pressable
+            key={code}
+            accessibilityRole="button"
+            accessibilityLabel={`Language: ${label}`}
+            onPress={() => setLanguage(code)}
+            hitSlop={8}
+            style={{ minHeight: 44, minWidth: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
+          >
+            <Text
+              style={{
+                fontFamily: language === code ? FONTS.bodyBold : FONTS.body,
+                fontSize: 14,
+                color: language === code ? COLORS.accent : COLORS.textMuted,
+              }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: sheetHeight + 24 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.eyebrow}>AI-POWERED ROADSIDE ASSISTANCE</Text>
-        <View style={styles.wordmarkRow}>
-          <Text style={[styles.wordmark, { color: COLORS.primary }]}>M</Text>
-          <Text style={[styles.wordmark, { color: COLORS.text }]}>OTIQ</Text>
+      <View style={{ flex: 1, justifyContent: "center" }}>
+        <View style={{ flexDirection: "row" }}>
+          <Text style={{ fontFamily: FONTS.display, fontSize: 60, color: COLORS.accent, letterSpacing: -1 }}>M</Text>
+          <Text style={{ fontFamily: FONTS.display, fontSize: 60, color: COLORS.text, letterSpacing: -1 }}>OTIQ</Text>
         </View>
-        <Text style={styles.tagline}>
-          Roadside assistance, <Text style={{ color: COLORS.primary, fontFamily: FONTS.bodyBold }}>on demand.</Text>
+        <Text style={{ fontFamily: FONTS.body, fontSize: 18, color: COLORS.textSecondary, marginTop: 8, lineHeight: 26 }}>
+          {t("tagline")}
         </Text>
-        <View style={styles.badgeRow}>
-          <Badge label={t("liveBadge")} tone="info" />
-        </View>
+      </View>
 
-        <View style={styles.illustrationCard}>
-          <ToolRouteIllustration />
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.valuePropRow}>
-            {VALUE_PROPS.map(({ key, icon: Icon }) => (
-              <View key={key} style={styles.valuePropItem}>
-                <View style={styles.valuePropIconWrap}>
-                  <Icon size={20} color={COLORS.primary} strokeWidth={2} />
-                </View>
-                <Text style={styles.valuePropLabel}>{t(key)}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.languageRow}>
-            {LANGUAGES.map(({ code, label }) => (
-              <Chip key={code} label={label} selected={language === code} onPress={() => setLanguage(code)} />
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-
-      <View style={styles.actionSheet} onLayout={onSheetLayout}>
-        <View style={styles.sheetHandle} />
-        <View style={styles.consentRow}>
-          <ShieldCheck size={14} color={COLORS.textMuted} strokeWidth={2} />
-          <Text style={styles.consentLine}>
-            {t("consentPrefix")}
-            <Text style={styles.consentLink}>{t("termsAndPrivacy")}</Text>
-            {t("consentSuffix")}
-          </Text>
-        </View>
+      <View style={{ gap: 12 }}>
         <Button
-          label={t("needAssistance")}
-          icon={Send}
+          label={t("getHelp")}
           accessibilityLabel="Continue as a customer"
           onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.CUSTOMER })}
         />
-        <Button
-          label={t("provideAssistance")}
-          variant="outline"
-          icon={Wrench}
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Continue as a provider"
           onPress={() => navigation.navigate("PhoneEntry", { intendedRole: UserRole.PROVIDER })}
-        />
+          style={{ minHeight: 48, alignItems: "center", justifyContent: "center" }}
+        >
+          <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.textSecondary }}>{t("providerLink")}</Text>
+        </Pressable>
+
+        {DEMO_TOOLS ? (
+          <View style={{ alignItems: "center", gap: 6, marginTop: 4 }}>
+            <Text style={{ fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted }}>Demo sign-in</Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {([UserRole.CUSTOMER, UserRole.PROVIDER] as const).map((role) => (
+                <Pressable
+                  key={role}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Demo sign-in as ${role.toLowerCase()}`}
+                  disabled={demoBusy !== null}
+                  onPress={() => demoSignIn(role)}
+                  style={{
+                    minHeight: 44,
+                    paddingHorizontal: 18,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    backgroundColor: COLORS.surface,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: demoBusy !== null ? 0.5 : 1,
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 13, color: COLORS.text }}>
+                    {demoBusy === role ? "Signing in…" : role === UserRole.CUSTOMER ? "Customer" : "Provider"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {demoError ? <Text style={{ fontFamily: FONTS.body, fontSize: 12, color: COLORS.warning }}>{demoError}</Text> : null}
+          </View>
+        ) : null}
+
+        <Text style={{ fontFamily: FONTS.body, fontSize: 11.5, color: COLORS.textMuted, textAlign: "center", marginTop: 4 }}>
+          {t("consentPrefix")}
+          <Text style={{ color: COLORS.textSecondary }}>{t("termsAndPrivacy")}</Text>
+          {t("consentSuffix")}
+        </Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bgTint, overflow: "hidden" },
-  glowTopRight: { position: "absolute", top: -70, right: -100, width: 320, height: 320, borderRadius: 200 },
-
-  scrollContent: { flexGrow: 1, paddingTop: 48, paddingHorizontal: 24 },
-  eyebrow: {
-    fontFamily: FONTS.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.6,
-    color: COLORS.primary,
-    textAlign: "center",
-    opacity: 0.75,
-  },
-  wordmarkRow: { flexDirection: "row", justifyContent: "center", marginTop: 8 },
-  wordmark: { fontFamily: FONTS.display, fontSize: 38, letterSpacing: 0.5 },
-  tagline: { fontFamily: FONTS.bodyRegular, fontSize: 15, color: COLORS.textSecondary, textAlign: "center", marginTop: 6 },
-  badgeRow: { alignItems: "center", marginTop: 12 },
-
-  illustrationCard: { alignItems: "center", marginTop: 20 },
-
-  infoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    marginTop: 4,
-    shadowColor: COLORS.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  valuePropRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  valuePropItem: { flex: 1, alignItems: "center", gap: 8 },
-  valuePropIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: COLORS.accentTint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  valuePropLabel: {
-    fontFamily: FONTS.bodyRegular,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-  },
-  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 18 },
-
-  languageRow: { flexDirection: "row", justifyContent: "center", gap: 8 },
-
-  actionSheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
-    gap: 14,
-    shadowColor: COLORS.primaryDark,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.border,
-    alignSelf: "center",
-    marginBottom: 2,
-  },
-  consentRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: 6 },
-  consentLine: {
-    fontFamily: FONTS.bodyRegular,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: "center",
-    flexShrink: 1,
-  },
-  consentLink: { color: COLORS.primary, fontFamily: FONTS.bodyBold },
-});

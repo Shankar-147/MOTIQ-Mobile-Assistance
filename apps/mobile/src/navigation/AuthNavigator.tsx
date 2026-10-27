@@ -12,7 +12,7 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 export function AuthNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: true, headerStyle: { backgroundColor: COLORS.bg }, headerTintColor: COLORS.text, headerShadowVisible: false, contentStyle: { backgroundColor: COLORS.bg } }}>
-      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ title: "MOTIQ" }} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} options={{ title: "Sign in" }} />
       <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} options={{ title: "Verify code" }} />
     </Stack.Navigator>

@@ -24,6 +24,8 @@ export const TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     consentSuffix: ".",
     needAssistance: "I need assistance",
     provideAssistance: "I provide roadside assistance",
+    getHelp: "Get help",
+    providerLink: "I'm a provider",
   },
   hi: {
     tagline: "मांगने पर सड़क किनारे सहायता।",
@@ -36,6 +38,8 @@ export const TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     consentSuffix: " से सहमत हैं।",
     needAssistance: "मुझे सहायता चाहिए",
     provideAssistance: "मैं सड़क किनारे सहायता प्रदान करता हूँ",
+    getHelp: "मदद पाएँ",
+    providerLink: "मैं प्रदाता हूँ",
   },
   ta: {
     tagline: "தேவைப்படும்போது சாலையோர உதவி.",
@@ -48,5 +52,7 @@ export const TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     consentSuffix: " ஏற்கிறீர்கள்.",
     needAssistance: "எனக்கு உதவி தேவை",
     provideAssistance: "நான் சாலையோர உதவி வழங்குகிறேன்",
+    getHelp: "உதவி பெறுங்கள்",
+    providerLink: "நான் வழங்குநர்",
   },
 };
