@@ -22,6 +22,7 @@ export type CustomerStackParamList = {
   RateProvider: { serviceRequestId: string };
   AddVehicle: { vehicleId?: string } | undefined;
   VehicleHealth: { vehicleId: string };
+  AskMotiq: undefined;
   AddMaintenanceRecord: { vehicleId: string };
   ReminderSettings: undefined;
   // Deliberately a separate route from AddVehicle, not the same route with an

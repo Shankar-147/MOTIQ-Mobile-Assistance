@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Text as RNText, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, Text as RNText, Vibration, View } from "react-native";
 import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
 import * as Location from "expo-location";
-import { ChevronRight } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Camera, ChevronRight, Sparkles } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { IssueType, VehicleDto } from "@motiq/types";
 import { CustomerStackParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
 import { consentApi } from "../../api/consentApi";
 import { vehicleApi } from "../../api/vehicleApi";
+import { aiApi, TriageResult } from "../../api/aiApi";
 import { enqueueServiceRequest } from "../../api/offlineQueue";
 import { useConnectivityStore } from "../../store/connectivityStore";
 import { A11Y_LABELS } from "../../accessibility/a11y";
@@ -24,7 +26,11 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "CreateRequest">;
 
 const ISSUE_TYPES = Object.values(IssueType);
 const TOTAL_STEPS = 3;
-const SHEET_SNAPS = [500];
+const SHEET_SNAPS = [600];
+// A model's suggestion is only applied automatically when it is at least this sure.
+const AUTO_APPLY_CONFIDENCE = 0.5;
+// Base64 text length cap for a photo (the API accepts ~4M; stay well under it).
+const MAX_PHOTO_BASE64_CHARS = 3_500_000;
 
 /** Ch71's mobile Customer app request-creation screen, as a 3-step sheet
  * (issue → vehicle and notes → confirm). The service area is derived by the
@@ -38,6 +44,9 @@ export function CreateRequestScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [step, setStep] = useState(1);
+  const [triage, setTriage] = useState<TriageResult | null>(null);
+  const [triageBusy, setTriageBusy] = useState<"text" | "photo" | null>(null);
+  const [triageError, setTriageError] = useState<string | null>(null);
   const isConnected = useConnectivityStore((state) => state.isConnected);
   const { position } = useDeviceLocation();
 
@@ -109,6 +118,74 @@ export function CreateRequestScreen({ route, navigation }: Props) {
     }
   }
 
+  function applyTriage(result: TriageResult) {
+    setTriage(result);
+    if (result.confidence >= AUTO_APPLY_CONFIDENCE) {
+      setIssueType(result.issueType);
+    }
+  }
+
+  async function suggestFromText() {
+    const text = description.trim();
+    if (text.length < 3 || triageBusy) return;
+    setTriageBusy("text");
+    setTriageError(null);
+    try {
+      const response = await aiApi.classifyIssue(text);
+      applyTriage(response.data);
+    } catch {
+      setTriageError("Couldn't get a suggestion right now — please choose the issue below.");
+    } finally {
+      setTriageBusy(null);
+    }
+  }
+
+  async function analysePhoto(base64: string, mimeType: string) {
+    if (base64.length > MAX_PHOTO_BASE64_CHARS) {
+      setTriageError("That photo is too large. Try a closer, smaller one.");
+      return;
+    }
+    setTriageBusy("photo");
+    setTriageError(null);
+    try {
+      const response = await aiApi.diagnosePhoto({ imageBase64: base64, mimeType, note: description.trim() || undefined });
+      applyTriage(response.data);
+    } catch {
+      setTriageError("Couldn't analyse the photo right now — please choose the issue below.");
+    } finally {
+      setTriageBusy(null);
+    }
+  }
+
+  async function pickPhoto(source: "camera" | "library") {
+    try {
+      if (source === "camera") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setTriageError("Camera permission is needed to take a photo.");
+          return;
+        }
+      }
+      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.4, base64: true };
+      const result =
+        source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled || !result.assets[0]?.base64) return;
+      const asset = result.assets[0];
+      const mime = asset.mimeType === "image/png" || asset.mimeType === "image/webp" ? asset.mimeType : "image/jpeg";
+      await analysePhoto(asset.base64 as string, mime);
+    } catch {
+      setTriageError("Couldn't open the photo. Please try again.");
+    }
+  }
+
+  function choosePhotoSource() {
+    Alert.alert("Add a photo", "Show the problem — a flat tyre, a warning light, damage.", [
+      { text: "Take a photo", onPress: () => void pickPhoto("camera") },
+      { text: "Choose from gallery", onPress: () => void pickPhoto("library") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
   const IssueIcon = ISSUE_ICONS[issueType];
 
@@ -154,6 +231,67 @@ export function CreateRequestScreen({ route, navigation }: Props) {
               <Heading size="xl" color={COLORS.text}>
                 What's wrong?
               </Heading>
+              <Input
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Describe it in your own words (any language)"
+                accessibilityLabel="Describe the problem"
+              />
+              <HStack space="sm">
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label={triageBusy === "text" ? "Thinking…" : "Suggest"}
+                    icon={Sparkles}
+                    variant="outline"
+                    accessibilityLabel="Suggest the issue type from my description"
+                    disabled={triageBusy !== null || description.trim().length < 3}
+                    onPress={suggestFromText}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label={triageBusy === "photo" ? "Analysing…" : "Add photo"}
+                    icon={Camera}
+                    variant="outline"
+                    accessibilityLabel="Add a photo of the problem"
+                    disabled={triageBusy !== null}
+                    onPress={choosePhotoSource}
+                  />
+                </View>
+              </HStack>
+              {triageBusy ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <ActivityIndicator color={COLORS.accent} />
+                  <RNText style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary }}>
+                    {triageBusy === "photo" ? "Looking at your photo…" : "Reading your description…"}
+                  </RNText>
+                </View>
+              ) : null}
+              {triageError ? <RNText style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.warning }}>{triageError}</RNText> : null}
+              {triage ? (
+                <View
+                  style={{
+                    backgroundColor: COLORS.surfaceRaised,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: triage.urgency === "HIGH" ? COLORS.danger : COLORS.border,
+                    padding: 12,
+                    gap: 4,
+                  }}
+                >
+                  <RNText style={{ fontFamily: FONTS.bodyBold, fontSize: 13, color: COLORS.accent }}>
+                    {triage.source === "AI" ? "AI suggests" : "Suggested"}: {ISSUE_LABELS[triage.issueType]}
+                    {triage.confidence >= AUTO_APPLY_CONFIDENCE ? "" : " (not sure — please check)"}
+                    {triage.urgency === "HIGH" ? " · Urgent" : ""}
+                  </RNText>
+                  {triage.summary ? (
+                    <RNText style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.text }}>{triage.summary}</RNText>
+                  ) : null}
+                  {triage.advice ? (
+                    <RNText style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary }}>{triage.advice}</RNText>
+                  ) : null}
+                </View>
+              ) : null}
               <HStack flexWrap="wrap" gap="$2">
                 {ISSUE_TYPES.map((type) => (
                   <Chip
@@ -194,13 +332,6 @@ export function CreateRequestScreen({ route, navigation }: Props) {
                   ))}
                 </HStack>
               ) : null}
-              <Input
-                label="Description (optional)"
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Anything the provider should know"
-                multiline
-              />
               <Button label="Next" icon={ChevronRight} onPress={() => setStep(3)} />
             </VStack>
           ) : null}

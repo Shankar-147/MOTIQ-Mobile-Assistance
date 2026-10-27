@@ -25,7 +25,7 @@ module.exports = {
     android: {
       package: "com.motiq.mobile",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
-      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "ACCESS_BACKGROUND_LOCATION"],
+      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "CAMERA"],
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon-foreground.png",
         backgroundColor: "#0B0B0F",
@@ -36,6 +36,15 @@ module.exports = {
         projectId: "178b67fe-e701-443a-bfb1-d92fcb828cc3",
       },
     },
-    plugins: ["expo-font"],
+    plugins: [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "MOTIQ lets you attach a photo of your vehicle problem so we can suggest the right help.",
+          cameraPermission: "MOTIQ uses the camera so you can photograph your vehicle problem.",
+        },
+      ],
+    ],
   },
 };

@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
@@ -12,7 +13,9 @@ async function bootstrap() {
   // parsed req.body — needed for Razorpay's webhook signature verification
   // (Ch57, binding), which must run against the exact bytes Razorpay signed,
   // not a re-serialized copy. See PaymentController's webhook route.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  // Photo triage posts a downsized image as base64 JSON; Express's 100 KB default would reject it.
+  app.useBodyParser("json", { limit: "6mb" });
 
   app.use(helmet());
   app.use(correlationIdMiddleware);

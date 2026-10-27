@@ -7,6 +7,7 @@ import { Roles } from "../identity/auth/decorators/roles.decorator";
 import { RolesGuard } from "../identity/auth/guards/roles.guard";
 import { AiService } from "./ai.service";
 import { ClassifyIssueDto } from "./dto/classify-issue.dto";
+import { DiagnosePhotoDto } from "./dto/diagnose-photo.dto";
 import { SendAssistantMessageDto } from "./dto/send-assistant-message.dto";
 
 @Controller("ai")
@@ -18,8 +19,18 @@ export class AiController {
   // on CreateServiceRequestDto (ADR 0007's binding fallback).
   @Post("classify-issue")
   @Roles(UserRole.CUSTOMER)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   classifyIssue(@Body() dto: ClassifyIssueDto) {
     return this.aiService.classifyIssue(dto.description);
+  }
+
+  // Photo triage — a suggestion only, like classify-issue. The photo is sent to the configured
+  // AI provider for analysis and is not stored by MOTIQ.
+  @Post("diagnose-photo")
+  @Roles(UserRole.CUSTOMER)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  diagnosePhoto(@Body() dto: DiagnosePhotoDto) {
+    return this.aiService.diagnosePhoto(dto);
   }
 
   // Ch90 — Customer/Provider only; Admin/Support use the Admin Console's own

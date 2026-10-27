@@ -9,6 +9,8 @@ import { WeightedScoreRankingAdapter } from "./adapters/weighted-score-ranking.a
 import { AI_ASSISTANT } from "./ports/ai-assistant.port";
 import { AnthropicAssistantAdapter } from "./adapters/anthropic-assistant.adapter";
 import { KeywordAssistantResponder } from "./adapters/keyword-assistant.responder";
+import { LLM_CHAT } from "./llm/llm-chat.port";
+import { OpenRouterChatClient } from "./llm/openrouter-chat.client";
 
 /**
  * Ch80's unifying serving module for the four `AiCapability` methods ADR
@@ -28,7 +30,8 @@ import { KeywordAssistantResponder } from "./adapters/keyword-assistant.responde
     { provide: ISSUE_CLASSIFIER, useClass: KeywordIssueClassifierAdapter },
     { provide: PROVIDER_RANKING, useClass: WeightedScoreRankingAdapter },
     { provide: AI_ASSISTANT, useClass: AnthropicAssistantAdapter },
+    { provide: LLM_CHAT, useClass: OpenRouterChatClient },
   ],
-  exports: [AiService],
+  exports: [AiService, LLM_CHAT],
 })
 export class AiModule {}

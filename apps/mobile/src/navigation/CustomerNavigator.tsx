@@ -13,6 +13,7 @@ import { AddEditVehicleScreen } from "../features/customer/AddEditVehicleScreen"
 import { VehicleHealthScreen } from "../features/customer/VehicleHealthScreen";
 import { AddMaintenanceRecordScreen } from "../features/customer/AddMaintenanceRecordScreen";
 import { ReminderSettingsScreen } from "../features/customer/ReminderSettingsScreen";
+import { AskMotiqScreen } from "../features/customer/AskMotiqScreen";
 import { hasSeenVehicleOnboarding } from "../features/customer/vehicleOnboarding";
 import { vehicleApi } from "../api/vehicleApi";
 import { useAuthStore } from "../store/authStore";
@@ -103,6 +104,7 @@ export function CustomerNavigator() {
         component={AddMaintenanceRecordScreen}
         options={{ title: "" }}
       />
+      <Stack.Screen name="AskMotiq" component={AskMotiqScreen} options={{ title: "Ask MOTIQ" }} />
       <Stack.Screen
         name="ReminderSettings"
         component={ReminderSettingsScreen}
