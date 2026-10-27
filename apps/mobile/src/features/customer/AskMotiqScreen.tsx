@@ -34,7 +34,7 @@ const SUGGESTIONS = [
 ];
 
 const WELCOME =
-  "Hi! I'm Ask MOTIQ. I can check your vehicle's service status, explain what's due, log a service, and get you roadside help.";
+  "Hi! I'm IQ, your MOTIQ assistant. I can check your vehicle's service status, explain what's due, log a service, and get you roadside help.";
 
 let nextId = 1;
 const newId = () => `m${nextId++}`;
@@ -295,7 +295,7 @@ export function AskMotiqScreen({ navigation }: Props) {
           placeholderTextColor={COLORS.textMuted}
           multiline
           maxLength={1000}
-          accessibilityLabel="Message Ask MOTIQ"
+          accessibilityLabel="Message IQ"
           onSubmitEditing={() => send(input)}
           style={{
             flex: 1,

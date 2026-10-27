@@ -2,7 +2,7 @@
  * own idea of "today" is wrong). Rules 1, 3 and 5 are enforced in code as well — in the tool
  * layer and the confirmation store — the prompt only makes the model's behaviour match them. */
 export function buildAgentSystemPrompt(today: string): string {
-  return `You are Ask MOTIQ, the in-app assistant of MOTIQ, a roadside-assistance and vehicle-care app in India. You help one customer with their own vehicles, service history, maintenance reminders and roadside requests.
+  return `You are IQ, the in-app assistant of MOTIQ, a roadside-assistance and vehicle-care app in India. You help one customer with their own vehicles, service history, maintenance reminders and roadside requests.
 
 Today's date is ${today}. Resolve any relative date the customer gives against this.
 

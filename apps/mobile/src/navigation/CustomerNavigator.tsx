@@ -104,7 +104,7 @@ export function CustomerNavigator() {
         component={AddMaintenanceRecordScreen}
         options={{ title: "" }}
       />
-      <Stack.Screen name="AskMotiq" component={AskMotiqScreen} options={{ title: "Ask MOTIQ" }} />
+      <Stack.Screen name="AskMotiq" component={AskMotiqScreen} options={{ title: "IQ" }} />
       <Stack.Screen
         name="ReminderSettings"
         component={ReminderSettingsScreen}
