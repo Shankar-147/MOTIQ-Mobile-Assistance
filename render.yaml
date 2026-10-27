@@ -10,7 +10,7 @@ services:
   - type: web
     name: motiq-api
     runtime: node
-    plan: starter         # "free" sleeps after 15 min idle (cold start ~1 min); use starter for a live demo
+    plan: free            # sleeps after 15 min idle (cold start ~1 min): keep it awake with a pinger on /api/v1/health, or switch to starter
     buildCommand: >-
       npm ci &&
       npm run --workspace packages/types build &&
