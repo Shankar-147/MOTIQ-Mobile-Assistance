@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { Text, View } from "react-native";
 import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Car } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -8,7 +8,8 @@ import { CustomerStackParamList } from "../../navigation/types";
 import { vehicleApi } from "../../api/vehicleApi";
 import { useAuthStore } from "../../store/authStore";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Button, Chip, Input } from "../../components/ui";
+import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 import { markVehicleOnboardingSeen } from "./vehicleOnboarding";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "AddVehicle" | "VehicleOnboarding">;
@@ -96,45 +97,47 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
   }
 
   return (
-    <KeyboardScreen>
-      <VStack space="lg">
-        <VStack space="xs">
-          <Heading size="xl">{vehicleId ? "Edit vehicle" : "Add your vehicle"}</Heading>
-          <Text color="$textLight500">
-            {onboarding
-              ? "Add the vehicle you'll usually need help with. You can skip this and add it later from your profile."
-              : "Vehicle details help providers arrive prepared."}
-          </Text>
-        </VStack>
+    <KeyboardScreen contentContainerStyle={{ gap: 24 }}>
+      <ScreenHeader
+        title={vehicleId ? "Edit vehicle" : "Add your vehicle"}
+        subtitle={
+          onboarding
+            ? "Add the vehicle you'll usually need help with. You can skip this and add it later from your profile."
+            : "Vehicle details help providers arrive prepared."
+        }
+      />
 
-        <VStack space="xs">
-          <Text size="sm" color="$textLight500" fontWeight="$semibold">
-            Vehicle type
-          </Text>
-          <HStack space="sm">
-            {VEHICLE_TYPES.map((type) => (
-              <Chip
-                key={type}
-                label={type.replace("_", " ")}
-                selected={vehicleType === type}
-                accessibilityLabel={`Vehicle type: ${type}`}
-                onPress={() => setVehicleType(type)}
-              />
-            ))}
-          </HStack>
-        </VStack>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Vehicle type</SectionLabel>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {VEHICLE_TYPES.map((type) => (
+            <Chip
+              key={type}
+              label={type.replace("_", " ").toLowerCase()}
+              selected={vehicleType === type}
+              accessibilityLabel={`Vehicle type: ${type}`}
+              onPress={() => setVehicleType(type)}
+            />
+          ))}
+        </View>
+      </View>
 
-        <Input label="Make" value={make} onChangeText={setMake} placeholder="e.g. Maruti Suzuki" />
-        <Input label="Model" value={model} onChangeText={setModel} placeholder="e.g. Swift" />
-        <Input label="Year (optional)" value={year} onChangeText={setYear} placeholder="e.g. 2020" />
-        <Input label="Plate number" value={plateNumber} onChangeText={setPlateNumber} placeholder="e.g. KA01AB1234" />
+      <Card style={{ gap: 16 }}>
+        <Input label="Make" value={make} onChangeText={setMake} placeholder="e.g. Maruti Suzuki" autoCapitalize="words" />
+        <Input label="Model" value={model} onChangeText={setModel} placeholder="e.g. Swift" autoCapitalize="words" />
+        <Input label="Year (optional)" value={year} onChangeText={setYear} placeholder="e.g. 2020" keyboardType="number-pad" />
+        <Input
+          label="Plate number"
+          value={plateNumber}
+          onChangeText={setPlateNumber}
+          placeholder="e.g. KA01AB1234"
+          autoCapitalize="characters"
+        />
+      </Card>
 
-        {status ? (
-          <Text color="$textLight700" size="sm">
-            {status}
-          </Text>
-        ) : null}
+      {status ? <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{status}</Text> : null}
 
+      <View style={{ gap: 12 }}>
         <Button
           label={submitting ? "Saving…" : "Save vehicle"}
           icon={Car}
@@ -143,7 +146,6 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
           loading={submitting}
           onPress={handleSave}
         />
-
         {onboarding ? (
           <Button
             label="Skip for now"
@@ -153,7 +155,7 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
             onPress={handleSkip}
           />
         ) : null}
-      </VStack>
+      </View>
     </KeyboardScreen>
   );
 }

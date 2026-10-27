@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { Text, View } from "react-native";
 import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Wrench } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -8,7 +8,8 @@ import { CustomerStackParamList } from "../../navigation/types";
 import { vehicleApi } from "../../api/vehicleApi";
 import { A11Y_LABELS } from "../../accessibility/a11y";
 import { MAINTENANCE_ICONS } from "../../theme/maintenanceIcons";
-import { Button, Chip, Input } from "../../components/ui";
+import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "AddMaintenanceRecord">;
 
@@ -46,50 +47,47 @@ export function AddMaintenanceRecordScreen({ route, navigation }: Props) {
   }
 
   return (
-    <KeyboardScreen>
-      <VStack space="lg">
-        <VStack space="xs">
-          <Heading size="xl">Add a service record</Heading>
-          <Text color="$textLight500">Logging this keeps your preventive reminders accurate.</Text>
-        </VStack>
+    <KeyboardScreen contentContainerStyle={{ gap: 24 }}>
+      <ScreenHeader title="Add a service record" subtitle="Logging this keeps your preventive reminders accurate." />
 
-        <VStack space="xs">
-          <Text size="sm" color="$textLight500" fontWeight="$semibold">
-            What was serviced?
-          </Text>
-          <HStack flexWrap="wrap" gap="$2">
-            {SERVICE_TYPES.map((type) => (
-              <Chip
-                key={type}
-                label={type.replace(/_/g, " ")}
-                icon={MAINTENANCE_ICONS[type]}
-                selected={serviceType === type}
-                accessibilityLabel={`Service type: ${type}`}
-                onPress={() => setServiceType(type)}
-              />
-            ))}
-          </HStack>
-        </VStack>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>What was serviced?</SectionLabel>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {SERVICE_TYPES.map((type) => (
+            <Chip
+              key={type}
+              label={type.replace(/_/g, " ").toLowerCase()}
+              icon={MAINTENANCE_ICONS[type]}
+              selected={serviceType === type}
+              accessibilityLabel={`Service type: ${type}`}
+              onPress={() => setServiceType(type)}
+            />
+          ))}
+        </View>
+      </View>
 
-        <Input label="Odometer reading (km)" value={odometerKm} onChangeText={setOdometerKm} placeholder="e.g. 24500" />
-        <Input label="Cost (optional)" value={cost} onChangeText={setCost} placeholder="e.g. 1500" />
-        <Input label="Notes (optional)" value={notes} onChangeText={setNotes} placeholder="Anything worth remembering" multiline />
-
-        {status ? (
-          <Text color="$textLight700" size="sm">
-            {status}
-          </Text>
-        ) : null}
-
-        <Button
-          label={submitting ? "Saving…" : "Save record"}
-          icon={Wrench}
-          accessibilityLabel={A11Y_LABELS.saveMaintenanceRecordButton}
-          disabled={submitting || !odometerKm}
-          loading={submitting}
-          onPress={handleSave}
+      <Card style={{ gap: 16 }}>
+        <Input
+          label="Odometer reading (km)"
+          value={odometerKm}
+          onChangeText={setOdometerKm}
+          placeholder="e.g. 24500"
+          keyboardType="number-pad"
         />
-      </VStack>
+        <Input label="Cost (optional)" value={cost} onChangeText={setCost} placeholder="e.g. 1500" keyboardType="decimal-pad" />
+        <Input label="Notes (optional)" value={notes} onChangeText={setNotes} placeholder="Anything worth remembering" multiline />
+      </Card>
+
+      {status ? <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{status}</Text> : null}
+
+      <Button
+        label={submitting ? "Saving…" : "Save record"}
+        icon={Wrench}
+        accessibilityLabel={A11Y_LABELS.saveMaintenanceRecordButton}
+        disabled={submitting || !odometerKm}
+        loading={submitting}
+        onPress={handleSave}
+      />
     </KeyboardScreen>
   );
 }

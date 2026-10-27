@@ -16,3 +16,4 @@ export { StatBlock } from "./StatBlock";
 export { PulseDot } from "./PulseDot";
 export { SheetModal } from "./SheetModal";
 export { SlideToConfirm } from "./SlideToConfirm";
+export { ScreenHeader, SectionLabel } from "./ScreenHeader";

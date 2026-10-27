@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from "react";
-import { Heading, HStack, ScrollView, Text, VStack } from "@gluestack-ui/themed";
+import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Bell } from "lucide-react-native";
 import { MaintenanceServiceType, VehicleReminderSettingsDto } from "@motiq/types";
 import { vehicleApi } from "../../api/vehicleApi";
 import { MAINTENANCE_ICONS } from "../../theme/maintenanceIcons";
-import { Button, Card, Chip, LoadingScreen, Toggle } from "../../components/ui";
+import { Button, Card, Chip, LoadingScreen, ScreenHeader, SectionLabel, Toggle } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 
 const LEAD_TIME_OPTIONS = [3, 7, 14];
 
@@ -15,7 +16,7 @@ const LEAD_TIME_OPTIONS = [3, 7, 14];
 export function ReminderSettingsScreen() {
   const [settings, setSettings] = useState<VehicleReminderSettingsDto | null>(null);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,9 +53,9 @@ export function ReminderSettingsScreen() {
         leadTimeDays: settings.leadTimeDays,
       });
       setSettings(response.data as VehicleReminderSettingsDto);
-      setStatus("Saved.");
+      setStatus({ text: "Saved.", ok: true });
     } catch {
-      setStatus("Couldn't save your preferences — try again.");
+      setStatus({ text: "Couldn't save your preferences — try again.", ok: false });
     } finally {
       setSaving(false);
     }
@@ -65,65 +66,63 @@ export function ReminderSettingsScreen() {
   }
 
   return (
-    <ScrollView flex={1} bg="$backgroundLight0" contentContainerStyle={{ padding: 24 }}>
-      <VStack space="lg">
-        <VStack space="xs">
-          <Heading size="xl">Reminder settings</Heading>
-          <Text color="$textLight500">Choose which checks send you a reminder, and how early.</Text>
-        </VStack>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ padding: 24, gap: 24 }}>
+      <ScreenHeader title="Reminder settings" subtitle="Choose which checks send you a reminder, and how early." />
 
-        <VStack space="sm">
-          {settings.preferences.map((preference) => {
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Remind me</SectionLabel>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {LEAD_TIME_OPTIONS.map((days) => (
+            <Chip
+              key={days}
+              label={`${days} days before`}
+              selected={settings.leadTimeDays === days}
+              accessibilityLabel={`Remind me ${days} days before`}
+              onPress={() => setLeadTimeDays(days)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Checks to remind me about</SectionLabel>
+        <Card style={{ padding: 0 }}>
+          {settings.preferences.map((preference, index) => {
             const Icon = MAINTENANCE_ICONS[preference.serviceType];
+            const name = preference.serviceType.replace(/_/g, " ").toLowerCase();
             return (
-              <Card key={preference.serviceType}>
-                <HStack alignItems="center" space="md">
-                  <Icon size={18} color="#22E58B" />
-                  <Text flex={1} fontWeight="$semibold" color="$textLight900" textTransform="capitalize">
-                    {preference.serviceType.replace(/_/g, " ").toLowerCase()}
-                  </Text>
-                  <Toggle
-                    value={preference.enabled}
-                    onValueChange={() => toggleCategory(preference.serviceType)}
-                    accessibilityLabel={`Reminders for ${preference.serviceType.replace(/_/g, " ").toLowerCase()}`}
-                  />
-                </HStack>
-              </Card>
+              <View
+                key={preference.serviceType}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderBottomWidth: index === settings.preferences.length - 1 ? 0 : 1,
+                  borderBottomColor: COLORS.border,
+                }}
+              >
+                <Icon size={18} color={preference.enabled ? COLORS.accent : COLORS.textMuted} />
+                <Text style={{ flex: 1, fontFamily: FONTS.bodyBold, fontSize: 15, color: COLORS.text, textTransform: "capitalize" }}>
+                  {name}
+                </Text>
+                <Toggle
+                  value={preference.enabled}
+                  onValueChange={() => toggleCategory(preference.serviceType)}
+                  accessibilityLabel={`Reminders for ${name}`}
+                />
+              </View>
             );
           })}
-        </VStack>
+        </Card>
+      </View>
 
-        <VStack space="xs">
-          <Text size="sm" color="$textLight500" fontWeight="$semibold">
-            Remind me
-          </Text>
-          <HStack space="sm" flexWrap="wrap" gap="$2">
-            {LEAD_TIME_OPTIONS.map((days) => (
-              <Chip
-                key={days}
-                label={`${days} day${days === 1 ? "" : "s"} before`}
-                selected={settings.leadTimeDays === days}
-                accessibilityLabel={`Remind me ${days} days before`}
-                onPress={() => setLeadTimeDays(days)}
-              />
-            ))}
-          </HStack>
-        </VStack>
+      {status ? (
+        <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: status.ok ? COLORS.accent : COLORS.warning }}>{status.text}</Text>
+      ) : null}
 
-        {status ? (
-          <Text color="$textLight700" size="sm">
-            {status}
-          </Text>
-        ) : null}
-
-        <Button
-          label={saving ? "Saving…" : "Save preferences"}
-          icon={Bell}
-          disabled={saving}
-          loading={saving}
-          onPress={handleSave}
-        />
-      </VStack>
+      <Button label={saving ? "Saving…" : "Save preferences"} icon={Bell} disabled={saving} loading={saving} onPress={handleSave} />
     </ScrollView>
   );
 }

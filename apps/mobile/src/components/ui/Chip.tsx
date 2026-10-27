@@ -35,7 +35,7 @@ export function Chip({ label, selected, onPress, accessibilityLabel, icon: Icon 
     >
       <HStack alignItems="center" space="xs">
         {Icon ? <Icon size={16} color={tint} /> : null}
-        <Text color={selected ? COLORS.accent : COLORS.text} fontWeight={selected ? "$bold" : "$normal"} size="sm">
+        <Text color={selected ? COLORS.accent : COLORS.text} fontWeight={selected ? "$bold" : "$normal"} size="sm" textTransform="capitalize">
           {label}
         </Text>
       </HStack>

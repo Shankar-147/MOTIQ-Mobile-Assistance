@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Alert, Vibration } from "react-native";
-import { HStack, Pressable, Spinner, Text } from "@gluestack-ui/themed";
+import { ActivityIndicator, Alert, Pressable, Text, Vibration, View } from "react-native";
 import { Siren } from "lucide-react-native";
 import * as Location from "expo-location";
 import { sosApi } from "../../api/sosApi";
 import { MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
+import { COLORS, FONTS } from "../../theme/colors";
 
 /**
  * Ch55's highest-priority path, surfaced as a persistent, always-reachable
@@ -59,23 +59,29 @@ export function SosButton({ serviceRequestId }: { serviceRequestId?: string }) {
       accessibilityLabel="Send SOS emergency alert"
       onPress={handlePress}
       disabled={isSending}
-      minWidth={MIN_TOUCH_TARGET_SIZE}
-      minHeight={MIN_TOUCH_TARGET_SIZE}
-      borderRadius={MIN_TOUCH_TARGET_SIZE / 2}
-      bg="#FF4D4D"
-      alignItems="center"
-      justifyContent="center"
-      px="$4"
+      style={({ pressed }) => ({
+        minWidth: MIN_TOUCH_TARGET_SIZE,
+        minHeight: MIN_TOUCH_TARGET_SIZE,
+        borderRadius: MIN_TOUCH_TARGET_SIZE / 2,
+        backgroundColor: COLORS.danger,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 16,
+        opacity: pressed ? 0.85 : 1,
+        shadowColor: COLORS.danger,
+        shadowOpacity: 0.45,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 6,
+      })}
     >
       {isSending ? (
-        <Spinner color="$white" />
+        <ActivityIndicator color="#FFFFFF" />
       ) : (
-        <HStack alignItems="center" space="xs">
-          <Siren size={14} color="#FFFFFF" />
-          <Text color="$white" fontWeight="$extrabold" size="sm" letterSpacing={0.5}>
-            SOS
-          </Text>
-        </HStack>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Siren size={15} color="#FFFFFF" />
+          <Text style={{ fontFamily: FONTS.bodyBold, fontSize: 14, color: "#FFFFFF", letterSpacing: 0.6 }}>SOS</Text>
+        </View>
       )}
     </Pressable>
   );

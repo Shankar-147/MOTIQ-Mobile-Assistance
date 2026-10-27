@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Heading, HStack, Text, VStack } from "@gluestack-ui/themed";
+import { Text, View } from "react-native";
 import { KeyboardScreen } from "../../components/KeyboardScreen";
 import { Truck } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -7,7 +7,8 @@ import { ProviderFleetVehicleDto, VehicleType } from "@motiq/types";
 import { ProviderStackParamList } from "../../navigation/types";
 import { providerFleetVehicleApi } from "../../api/providerFleetVehicleApi";
 import { A11Y_LABELS } from "../../accessibility/a11y";
-import { Button, Chip, Input } from "../../components/ui";
+import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
+import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "AddFleetVehicle">;
 
@@ -65,49 +66,49 @@ export function AddEditFleetVehicleScreen({ route, navigation }: Props) {
   }
 
   return (
-    <KeyboardScreen>
-      <VStack space="lg">
-        <VStack space="xs">
-          <Heading size="xl">{vehicleId ? "Edit fleet vehicle" : "Add a fleet vehicle"}</Heading>
-          <Text color="$textLight500">Keep your fleet up to date for job matching.</Text>
-        </VStack>
+    <KeyboardScreen contentContainerStyle={{ gap: 24 }}>
+      <ScreenHeader
+        title={vehicleId ? "Edit fleet vehicle" : "Add a fleet vehicle"}
+        subtitle="Keep your fleet up to date for job matching."
+      />
 
-        <VStack space="xs">
-          <Text size="sm" color="$textLight500" fontWeight="$semibold">
-            Vehicle type
-          </Text>
-          <HStack space="sm">
-            {VEHICLE_TYPES.map((type) => (
-              <Chip
-                key={type}
-                label={type.replace("_", " ")}
-                selected={vehicleType === type}
-                accessibilityLabel={`Vehicle type: ${type}`}
-                onPress={() => setVehicleType(type)}
-              />
-            ))}
-          </HStack>
-        </VStack>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Vehicle type</SectionLabel>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {VEHICLE_TYPES.map((type) => (
+            <Chip
+              key={type}
+              label={type.replace("_", " ").toLowerCase()}
+              selected={vehicleType === type}
+              accessibilityLabel={`Vehicle type: ${type}`}
+              onPress={() => setVehicleType(type)}
+            />
+          ))}
+        </View>
+      </View>
 
-        <Input label="Make" value={make} onChangeText={setMake} placeholder="e.g. Tata" />
-        <Input label="Model" value={model} onChangeText={setModel} placeholder="e.g. Ace" />
-        <Input label="Plate number" value={plateNumber} onChangeText={setPlateNumber} placeholder="e.g. KA01AB1234" />
-
-        {status ? (
-          <Text color="$textLight700" size="sm">
-            {status}
-          </Text>
-        ) : null}
-
-        <Button
-          label={submitting ? "Saving…" : "Save vehicle"}
-          icon={Truck}
-          accessibilityLabel={A11Y_LABELS.saveFleetVehicleButton}
-          disabled={submitting || !make || !model || !plateNumber}
-          loading={submitting}
-          onPress={handleSave}
+      <Card style={{ gap: 16 }}>
+        <Input label="Make" value={make} onChangeText={setMake} placeholder="e.g. Tata" autoCapitalize="words" />
+        <Input label="Model" value={model} onChangeText={setModel} placeholder="e.g. Ace" autoCapitalize="words" />
+        <Input
+          label="Plate number"
+          value={plateNumber}
+          onChangeText={setPlateNumber}
+          placeholder="e.g. KA01AB1234"
+          autoCapitalize="characters"
         />
-      </VStack>
+      </Card>
+
+      {status ? <Text style={{ fontFamily: FONTS.body, fontSize: 14, color: COLORS.warning }}>{status}</Text> : null}
+
+      <Button
+        label={submitting ? "Saving…" : "Save vehicle"}
+        icon={Truck}
+        accessibilityLabel={A11Y_LABELS.saveFleetVehicleButton}
+        disabled={submitting || !make || !model || !plateNumber}
+        loading={submitting}
+        onPress={handleSave}
+      />
     </KeyboardScreen>
   );
 }
