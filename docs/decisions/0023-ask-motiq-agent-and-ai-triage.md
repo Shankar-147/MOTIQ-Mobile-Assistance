@@ -18,7 +18,7 @@ Three features, all optional on top of the existing flow and all degrading to a 
 2. **Free-text triage** — `POST /ai/classify-issue` now asks a model (any language) and returns type, confidence, urgency, summary and a safety tip; if no model is configured or the reply is unusable, the existing keyword classifier answers. The customer still always chooses `issueType` (Ch83's binding fallback).
 3. **Photo triage** — `POST /ai/diagnose-photo` sends a downsized photo to a vision-capable model. Suggestion only; when no model is available the app asks the customer to choose manually.
 
-The LLM is reached through a provider-neutral `LlmChatPort` with an OpenRouter implementation (`AI_AGENT_MODEL`, `AI_VISION_MODEL` configurable), so the model can be changed without touching callers.
+The LLM is reached through a provider-neutral `LlmChatPort` with an OpenRouter implementation, so the model can be changed without touching callers. By default it uses **free** models that support both tool calling and images, in a fallback chain of three (OpenRouter's limit): OpenRouter tries the next if one is rate-limited or at capacity, and the client retries once on a transient failure. First choices are configurable (`AI_AGENT_MODEL`, `AI_VISION_MODEL`, `AI_FALLBACK_MODELS`). The API key is cleaned of stray quotes and whitespace on load, and the server logs only its length.
 
 **Safety rules enforced in code, not left to the prompt:**
 - **Identity comes from the session** (`@CurrentUser()`; architecture rule 9). The model never supplies a profile id; vehicle ids it supplies are checked for ownership by `VehicleService` before anything is proposed or run.
@@ -41,5 +41,6 @@ The LLM is reached through a provider-neutral `LlmChatPort` with an OpenRouter i
 - **Privacy:** photos and chat text are sent to a third-party model provider. A consent/disclosure step and a data-processing review are required before real users.
 - **Cost:** the agent is bounded by call, history and rate limits, but there is no dollar cap per conversation for it (the legacy assistant has one).
 - **Emergency pre-filter** is a substring keyword list (ADR 0019); a message containing e.g. "accident" files a real SOS alert even in a calm context.
-- **Model choice matters:** free models are rate-limited and often lack tool calling or vision; the agent needs a tool-capable model and photo triage a vision-capable one.
+- **Free-tier limits are the main operational risk.** A free OpenRouter account allows about 50 free-model requests per day (1000 with 10 credits added), plus a per-minute cap, and one agent message uses two to three requests (tool call, then answer). Free providers are also sometimes at capacity and replies take 3 to 15 seconds. When a limit is hit every feature degrades to its fallback, so the app stays usable, but the agent is then a FAQ bot. Quota should be monitored, and for real use a paid or credited account is needed.
+- **Model choice matters:** the agent needs a tool-capable model and photo triage a vision-capable one; results vary between runs because the models are general-purpose.
 - Ask MOTIQ answers only from tool results and the reviewed safety text; it does not diagnose faults and never gives repair instructions.

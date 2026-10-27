@@ -75,7 +75,9 @@ export class AiService {
       try {
         const result = await this.llm.chat({
           purpose: "agent",
-          maxTokens: 300,
+          // Free "reasoning" models spend tokens thinking before they answer, so leave room.
+          maxTokens: 900,
+          timeoutMs: 25_000,
           messages: [
             { role: "system", content: CLASSIFY_SYSTEM_PROMPT },
             { role: "user", content: description.slice(0, 1000) },
@@ -103,7 +105,8 @@ export class AiService {
     try {
       const result = await this.llm.chat({
         purpose: "vision",
-        maxTokens: 350,
+        maxTokens: 900,
+        timeoutMs: 40_000,
         messages: [
           { role: "system", content: PHOTO_SYSTEM_PROMPT },
           {

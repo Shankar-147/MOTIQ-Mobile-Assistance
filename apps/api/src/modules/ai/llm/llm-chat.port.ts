@@ -26,6 +26,8 @@ export interface LlmChatRequest {
   /** Which configured model to use: the tool-calling agent model or the vision model. */
   purpose: "agent" | "vision";
   maxTokens?: number;
+  /** Milliseconds before the call is abandoned (default 45 s); callers with a fast fallback use less. */
+  timeoutMs?: number;
 }
 
 export interface LlmChatResult {
