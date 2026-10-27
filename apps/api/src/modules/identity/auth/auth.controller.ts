@@ -6,6 +6,7 @@ import { RequestOtpDto } from "./dto/request-otp.dto";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { AdminLoginDto } from "./dto/admin-login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { DemoLoginDto } from "./dto/demo-login.dto";
 import { ConfirmMfaEnrollmentDto } from "./dto/confirm-mfa-enrollment.dto";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
@@ -30,6 +31,13 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
+  }
+
+  // Demo-only (404 unless DEMO_MODE=true) — see AuthService.demoLogin().
+  @Post("demo-login")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  demoLogin(@Body() dto: DemoLoginDto) {
+    return this.authService.demoLogin(dto);
   }
 
   @Post("admin/login")

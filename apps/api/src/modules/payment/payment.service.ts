@@ -217,6 +217,34 @@ export class PaymentService {
   }
 
   /**
+   * Demo-only capture for the live web demo (apps/web /demo) when no payment
+   * gateway can issue an order (e.g. invalid Razorpay test keys). Hard-gated:
+   * a 404 unless DEMO_MODE=true, and it only ever settles an existing,
+   * not-yet-captured payment. It never touches a real gateway, and the stored
+   * gatewayPaymentId is prefixed "demo_" so it can never be mistaken for a
+   * genuine capture. Must stay off in any shared or production environment.
+   */
+  async captureForDemo(serviceRequestId: string) {
+    if (this.config.get<string>("DEMO_MODE") !== "true") {
+      throw new NotFoundException();
+    }
+    const payment = await this.prisma.payment.findUnique({ where: { serviceRequestId } });
+    if (!payment) {
+      throw new NotFoundException(`No Payment found for ServiceRequest ${serviceRequestId}`);
+    }
+    if (payment.status === PrismaPaymentStatus.CAPTURED) {
+      return payment;
+    }
+    if (payment.status !== PrismaPaymentStatus.PENDING && payment.status !== PrismaPaymentStatus.AUTHORIZED) {
+      throw new BadRequestException(`Payment ${payment.id} is ${payment.status} and cannot be demo-captured.`);
+    }
+    return this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PrismaPaymentStatus.CAPTURED, gatewayPaymentId: `demo_${Date.now()}` },
+    });
+  }
+
+  /**
    * The customer checkout screen's confirmation call — Razorpay's checkout
    * SDK hands the client `razorpay_order_id`/`razorpay_payment_id`/
    * `razorpay_signature` on a successful charge; this verifies that

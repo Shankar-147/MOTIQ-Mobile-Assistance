@@ -71,6 +71,18 @@ export class PaymentController {
     );
   }
 
+  // Demo-only (404 unless DEMO_MODE=true) — see PaymentService.captureForDemo().
+  @Post("requests/:id/payment/demo-capture")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  async demoCapture(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    const request = await this.requestService.findById(id);
+    if (request.customerProfileId !== user.profileId) {
+      throw new ForbiddenException("You can only pay for your own service requests.");
+    }
+    return this.paymentService.captureForDemo(id);
+  }
+
   // Ch72's mobile Provider app earnings screen — new in this phase, see
   // PaymentService.getEarningsSummaryForProvider()'s comment on why this
   // lives here (PaymentModule owns Payment) rather than on ProviderController.

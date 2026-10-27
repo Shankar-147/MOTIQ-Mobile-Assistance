@@ -15,6 +15,7 @@ import { RequestOtpDto } from "./dto/request-otp.dto";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { AdminLoginDto } from "./dto/admin-login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { DemoLoginDto } from "./dto/demo-login.dto";
 import { JwtPayload } from "./jwt-payload.interface";
 import { generateOtpCode, hashOtpCode, verifyOtpCode } from "./otp.util";
 import { normalizePhone } from "./phone.util";
@@ -163,6 +164,34 @@ export class AuthService {
     if (!serviceArea) {
       throw new NotFoundException(`ServiceArea ${dto.serviceAreaId} not found.`);
     }
+  }
+
+  /**
+   * Demo-only sign-in for the live web demo (apps/web /demo) so a presentation
+   * never depends on an OTP email arriving. Hard-gated: it does nothing (404)
+   * unless DEMO_MODE=true, and it can only ever sign in as the two accounts
+   * named by DEMO_CUSTOMER_PHONE / DEMO_PROVIDER_PHONE — the caller picks a
+   * role, never an identity (CLAUDE.md rule 9). Must stay off in any shared or
+   * production environment.
+   */
+  async demoLogin(dto: DemoLoginDto): Promise<TokenPairResponse> {
+    if (this.config.get<string>("DEMO_MODE") !== "true") {
+      throw new NotFoundException();
+    }
+    const phoneKey = dto.role === "CUSTOMER" ? "DEMO_CUSTOMER_PHONE" : "DEMO_PROVIDER_PHONE";
+    const configuredPhone = this.config.get<string>(phoneKey);
+    if (!configuredPhone) {
+      throw new BadRequestException(`${phoneKey} is not configured.`);
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { phone: normalizePhone(configuredPhone) },
+      include: { customerProfile: true, providerProfile: true },
+    });
+    const profileId = user?.role === PrismaUserRole.CUSTOMER ? user.customerProfile?.id : user?.providerProfile?.id;
+    if (!user || !user.isActive || !profileId || (user.role as unknown as string) !== dto.role) {
+      throw new BadRequestException(`No active ${dto.role} account matches ${phoneKey}.`);
+    }
+    return this.issueTokenPair(user.id, user.role as unknown as UserRole, profileId);
   }
 
   async adminLogin(dto: AdminLoginDto): Promise<TokenPairResponse> {
