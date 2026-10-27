@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import * as Location from "expo-location";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -10,9 +10,10 @@ import { GeoPoint } from "../../components/LiveTrackingMap";
 import { MapBackdrop } from "../../components/MapBackdrop";
 import { OfflineBanner } from "../../components/OfflineBanner";
 import { StatusTimeline, TimelineStep } from "../../components/StatusTimeline";
-import { BottomSheet, LoadingScreen, SlideToConfirm } from "../../components/ui";
+import { BottomSheet, Button, LoadingScreen, SlideToConfirm } from "../../components/ui";
 import { SosButton } from "../sos/SosButton";
 import { useRouteToPickup } from "../../hooks/useRouteToPickup";
+import { startForegroundLocationTracking, startSimulatedDrive } from "./locationTracking";
 import { COLORS, FONTS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "ActiveJob">;
@@ -49,6 +50,9 @@ const STEP_INDEX: Record<RequestStatus, number> = {
 
 const SHEET_SNAPS = [300];
 
+// Presentation tool: enabled only in builds made with EXPO_PUBLIC_DEMO_TOOLS=true.
+const DEMO_TOOLS = process.env.EXPO_PUBLIC_DEMO_TOOLS === "true";
+
 /**
  * Ch72's job-progress flow — one control that always advances to the next
  * state in Ch19's state machine (RequestService.transition() rejects
@@ -67,6 +71,8 @@ export function ActiveJobScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [ownPosition, setOwnPosition] = useState<GeoPoint | null>(null);
+  const [driving, setDriving] = useState(false);
+  const stopDriveRef = useRef<(() => void) | null>(null);
   const drivingRoute = useRouteToPickup(serviceRequestId, ownPosition);
 
   useEffect(() => {
@@ -110,6 +116,21 @@ export function ActiveJobScreen({ route, navigation }: Props) {
       subscription?.remove();
     };
   }, []);
+
+  useEffect(() => () => stopDriveRef.current?.(), []);
+
+  function handleSimulateDrive() {
+    if (!pickup || driving) {
+      return;
+    }
+    setDriving(true);
+    // Start roughly 1.7 km from the pickup point and drive straight to it.
+    const start = { latitude: pickup.latitude + 0.012, longitude: pickup.longitude + 0.01 };
+    stopDriveRef.current = startSimulatedDrive(start, pickup, setOwnPosition, () => {
+      setDriving(false);
+      void startForegroundLocationTracking();
+    });
+  }
 
   async function handleAdvance() {
     const next = NEXT_STATUS[status];
@@ -162,6 +183,14 @@ export function ActiveJobScreen({ route, navigation }: Props) {
           <StatusTimeline steps={STEPS} currentIndex={STEP_INDEX[status] ?? 0} />
           {error ? (
             <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.danger }}>{error}</Text>
+          ) : null}
+          {DEMO_TOOLS && status === RequestStatus.PROVIDER_EN_ROUTE ? (
+            <Button
+              label={driving ? "Driving… live location streaming" : "Simulate the drive (demo)"}
+              variant="outline"
+              disabled={driving}
+              onPress={handleSimulateDrive}
+            />
           ) : null}
           {hasNext ? (
             <SlideToConfirm

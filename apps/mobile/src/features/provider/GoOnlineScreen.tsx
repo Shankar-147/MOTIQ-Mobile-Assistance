@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { AppState, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import { ArrowRight, Plus, Truck } from "lucide-react-native";
@@ -11,7 +11,7 @@ import { ProviderStackParamList, ProviderTabParamList } from "../../navigation/t
 import { providerApi } from "../../api/providerApi";
 import { providerFleetVehicleApi } from "../../api/providerFleetVehicleApi";
 import { consentApi } from "../../api/consentApi";
-import { connectTrackingSocket, disconnectTrackingSocket, sendPresenceHeartbeat } from "../../realtime/trackingSocket";
+import { connectTrackingSocket, disconnectTrackingSocket, onSocketConnect, sendPresenceHeartbeat } from "../../realtime/trackingSocket";
 import { startForegroundLocationTracking, stopLocationTracking } from "./locationTracking";
 import { registerForPushNotifications } from "../../notifications/pushRegistration";
 import { usePendingOfferStore } from "../../store/pendingOfferStore";
@@ -31,9 +31,9 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<ProviderStackParamList>
 >;
 
-const HEARTBEAT_INTERVAL_MS = 20_000;
+const HEARTBEAT_INTERVAL_MS = 15_000;
 const RECENT_JOBS_LIMIT = 3;
-const RECENT_JOBS_REFRESH_MS = 8_000;
+const RECENT_JOBS_REFRESH_MS = 4_000;
 const SHEET_SNAPS = [400, 660];
 
 interface OwnProfileSummary {
@@ -145,7 +145,18 @@ export function GoOnlineScreen({ navigation }: Props) {
       return;
     }
     const heartbeat = setInterval(sendPresenceHeartbeat, HEARTBEAT_INTERVAL_MS);
-    return () => clearInterval(heartbeat);
+    // The server marks a provider OFFLINE shortly after the socket drops (phone locked, network
+    // lost). A heartbeat sets them ONLINE again, so send one the moment the socket reconnects
+    // and the moment the app comes back to the foreground, instead of waiting for the next tick.
+    const stopConnectListener = onSocketConnect(sendPresenceHeartbeat);
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") sendPresenceHeartbeat();
+    });
+    return () => {
+      clearInterval(heartbeat);
+      stopConnectListener();
+      appStateSubscription.remove();
+    };
   }, [online]);
 
   async function handleToggle() {

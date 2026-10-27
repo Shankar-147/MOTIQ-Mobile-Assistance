@@ -29,9 +29,10 @@ export function connectTrackingSocket(): Socket {
   if (socket?.connected) {
     return socket;
   }
-  const { accessToken } = useAuthStore.getState();
   socket = io(`${WS_URL}/tracking`, {
-    auth: { token: accessToken },
+    // A function, so every (re)connect reads the latest access token instead of the
+    // one captured when the socket was first created (it expires after 15 minutes).
+    auth: (callback) => callback({ token: useAuthStore.getState().accessToken }),
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
@@ -46,6 +47,12 @@ export function subscribeToRequest(serviceRequestId: string): void {
 
 export function sendLocationUpdate(latitude: number, longitude: number): void {
   socket?.emit("location:update", { latitude, longitude });
+}
+
+/** Calls `handler` on the socket's first connect and on every reconnect. */
+export function onSocketConnect(handler: () => void): () => void {
+  socket?.on("connect", handler);
+  return () => socket?.off("connect", handler);
 }
 
 export function sendPresenceHeartbeat(): void {
