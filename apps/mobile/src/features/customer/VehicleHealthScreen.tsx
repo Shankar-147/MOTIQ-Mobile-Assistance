@@ -97,14 +97,23 @@ export function VehicleHealthScreen({ route, navigation }: Props) {
       ? { text: `${overdue} service${overdue === 1 ? "" : "s"} overdue`, color: COLORS.danger }
       : dueSoon > 0
         ? { text: `${dueSoon} coming up soon`, color: COLORS.warning }
-        : { text: "All up to date", color: COLORS.accent };
+        : ok > 0
+          ? { text: "All up to date", color: COLORS.accent }
+          : { text: "Nothing tracked yet", color: COLORS.text };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ padding: 24, gap: 24 }}>
       <ScreenHeader title="Vehicle health" subtitle="Preventive reminders based on your service history." />
 
       <Card style={{ gap: 18 }}>
-        <Text style={{ fontFamily: FONTS.display, fontSize: 20, color: headline.color }}>{headline.text}</Text>
+        <View style={{ gap: 4 }}>
+          <Text style={{ fontFamily: FONTS.display, fontSize: 20, color: headline.color }}>{headline.text}</Text>
+          {ok === 0 && overdue === 0 && dueSoon === 0 ? (
+            <Text style={{ fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSecondary }}>
+              Log a service record and we'll start tracking when each check is due.
+            </Text>
+          ) : null}
+        </View>
         <View style={{ flexDirection: "row" }}>
           <SummaryCell label="Overdue" value={overdue} color={overdue > 0 ? COLORS.danger : COLORS.text} />
           <SummaryCell label="Due soon" value={dueSoon} color={dueSoon > 0 ? COLORS.warning : COLORS.text} />

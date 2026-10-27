@@ -10,6 +10,7 @@ import { useAuthStore } from "../../store/authStore";
 import { A11Y_LABELS } from "../../accessibility/a11y";
 import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
 import { COLORS, FONTS } from "../../theme/colors";
+import { enumLabel } from "../../utils/enumLabel";
 import { markVehicleOnboardingSeen } from "./vehicleOnboarding";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "AddVehicle" | "VehicleOnboarding">;
@@ -113,7 +114,7 @@ export function AddEditVehicleScreen({ route, navigation }: Props) {
           {VEHICLE_TYPES.map((type) => (
             <Chip
               key={type}
-              label={type.replace("_", " ").toLowerCase()}
+              label={enumLabel(type)}
               selected={vehicleType === type}
               accessibilityLabel={`Vehicle type: ${type}`}
               onPress={() => setVehicleType(type)}

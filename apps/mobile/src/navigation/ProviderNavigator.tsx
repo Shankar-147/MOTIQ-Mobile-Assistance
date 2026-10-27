@@ -32,9 +32,7 @@ export function ProviderNavigator() {
       <Stack.Screen
         name="AddFleetVehicle"
         component={AddEditFleetVehicleScreen}
-        options={({ route }) => ({
-          title: route.params?.vehicleId ? "Edit fleet vehicle" : "Add fleet vehicle",
-        })}
+        options={{ title: "" }}
       />
       <Stack.Screen name="Earnings" component={EarningsScreen} options={{ title: "Earnings" }} />
       <Stack.Screen name="MyRatings" component={MyRatingsScreen} options={{ title: "My ratings" }} />

@@ -90,25 +90,23 @@ export function CustomerNavigator() {
       <Stack.Screen
         name="AddVehicle"
         component={AddEditVehicleScreen}
-        options={({ route }) => ({
-          title: route.params?.vehicleId ? "Edit vehicle" : "Add vehicle",
-        })}
+        options={{ title: "" }}
       />
       <Stack.Screen
         name="VehicleOnboarding"
         component={AddEditVehicleScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="VehicleHealth" component={VehicleHealthScreen} options={{ title: "Vehicle health" }} />
+      <Stack.Screen name="VehicleHealth" component={VehicleHealthScreen} options={{ title: "" }} />
       <Stack.Screen
         name="AddMaintenanceRecord"
         component={AddMaintenanceRecordScreen}
-        options={{ title: "Add service record" }}
+        options={{ title: "" }}
       />
       <Stack.Screen
         name="ReminderSettings"
         component={ReminderSettingsScreen}
-        options={{ title: "Reminder settings" }}
+        options={{ title: "" }}
       />
     </Stack.Navigator>
   );

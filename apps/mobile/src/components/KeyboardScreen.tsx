@@ -11,6 +11,9 @@ import {
 } from "react-native";
 import { COLORS } from "../theme/colors";
 
+// Clear space kept between the focused field and the top of the keyboard.
+const FIELD_MARGIN = 120;
+
 interface KeyboardScreenProps {
   children: React.ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -32,17 +35,20 @@ export function KeyboardScreen({ children, contentContainerStyle }: KeyboardScre
     const show = Keyboard.addListener(showEvent, (e) => {
       const height = e.endCoordinates.height;
       setKeyboardHeight(height);
-      // Let the padding render, then bring the focused field above the keyboard.
-      setTimeout(() => {
+      // Let the padding render, then bring the focused field well above the keyboard. Measured
+      // twice: the keyboard's reported height can settle after the first pass on some devices.
+      const reveal = () => {
         const focused = TextInput.State.currentlyFocusedInput?.();
         focused?.measureInWindow((_x, y, _w, h) => {
-          const visibleBottom = windowHeight - height - 24;
+          const visibleBottom = windowHeight - height - FIELD_MARGIN;
           const fieldBottom = y + h;
           if (fieldBottom > visibleBottom) {
             scrollRef.current?.scrollTo({ y: scrollY.current + (fieldBottom - visibleBottom), animated: true });
           }
         });
-      }, 60);
+      };
+      setTimeout(reveal, 120);
+      setTimeout(reveal, 450);
     });
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
     return () => {

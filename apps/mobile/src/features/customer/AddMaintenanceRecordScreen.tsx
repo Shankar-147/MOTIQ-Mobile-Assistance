@@ -10,6 +10,7 @@ import { A11Y_LABELS } from "../../accessibility/a11y";
 import { MAINTENANCE_ICONS } from "../../theme/maintenanceIcons";
 import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
 import { COLORS, FONTS } from "../../theme/colors";
+import { enumLabel } from "../../utils/enumLabel";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "AddMaintenanceRecord">;
 
@@ -56,7 +57,7 @@ export function AddMaintenanceRecordScreen({ route, navigation }: Props) {
           {SERVICE_TYPES.map((type) => (
             <Chip
               key={type}
-              label={type.replace(/_/g, " ").toLowerCase()}
+              label={enumLabel(type)}
               icon={MAINTENANCE_ICONS[type]}
               selected={serviceType === type}
               accessibilityLabel={`Service type: ${type}`}

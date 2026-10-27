@@ -9,6 +9,7 @@ import { providerFleetVehicleApi } from "../../api/providerFleetVehicleApi";
 import { A11Y_LABELS } from "../../accessibility/a11y";
 import { Button, Card, Chip, Input, ScreenHeader, SectionLabel } from "../../components/ui";
 import { COLORS, FONTS } from "../../theme/colors";
+import { enumLabel } from "../../utils/enumLabel";
 
 type Props = NativeStackScreenProps<ProviderStackParamList, "AddFleetVehicle">;
 
@@ -78,7 +79,7 @@ export function AddEditFleetVehicleScreen({ route, navigation }: Props) {
           {VEHICLE_TYPES.map((type) => (
             <Chip
               key={type}
-              label={type.replace("_", " ").toLowerCase()}
+              label={enumLabel(type)}
               selected={vehicleType === type}
               accessibilityLabel={`Vehicle type: ${type}`}
               onPress={() => setVehicleType(type)}
