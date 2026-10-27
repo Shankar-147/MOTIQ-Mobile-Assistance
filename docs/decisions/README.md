@@ -45,3 +45,4 @@ This mirrors the process the Bible will formally define in **Chapter 36**; kept 
 | 0020 | [Security hardening, observability, compliance scope](0020-security-hardening-observability-compliance-scope.md) | Confirmed (DPDP real-endpoints requirement, consent gating); Provisional (encryption master-key management, GPS-spoof thresholds, erasure-as-anonymization) | Ch92–100, Ch101–117, Ch126–132 |
 | 0021 | [SOS & Safety Service](0021-sos-safety-service.md) | Confirmed (bypass-priority, no-delay rate-limiting exemption); Provisional (alert lifecycle, emergency-number config, no real emergency-service integration) | Ch55, Ch1 §1.8, Ch90 |
 | 0022 | [Admin Console session architecture: Next.js as a BFF](0022-admin-console-bff-session-pattern.md) | Provisional | Ch137 |
+| 0023 | [Ask MOTIQ: tool-calling customer agent and AI triage from text and photo](0023-ask-motiq-agent-and-ai-triage.md) | Provisional | Ch80, Ch83, Ch90 |

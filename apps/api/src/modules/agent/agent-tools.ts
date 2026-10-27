@@ -285,7 +285,7 @@ export class AgentToolsService {
           }
           const label = await this.vehicleLabel(ctx, vehicleId);
           return {
-            summary: `Log a ${words(serviceType)} at ${odometerKm.toLocaleString("en-IN")} km${cost ? ` (₹${cost})` : ""} for your ${label}.`,
+            summary: `Log a service record: ${words(serviceType)} at ${odometerKm.toLocaleString("en-IN")} km${cost ? ` (₹${cost})` : ""}, for your ${label}.`,
             args: { vehicleId, serviceType, odometerKm, cost, notes },
           };
         },
