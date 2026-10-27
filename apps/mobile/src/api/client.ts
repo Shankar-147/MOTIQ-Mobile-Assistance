@@ -26,7 +26,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
-  const { refreshToken, setAccessToken, logout } = useAuthStore.getState();
+  const { refreshToken, setSession, logout } = useAuthStore.getState();
   if (!refreshToken) {
     return null;
   }
@@ -34,10 +34,16 @@ async function refreshAccessToken(): Promise<string | null> {
     const response = await axios.post<TokenPairResponse>(`${API_BASE_URL}/auth/refresh`, {
       refreshToken,
     } satisfies RefreshTokenRequest);
-    setAccessToken(response.data.accessToken);
+    // The server rotates refresh tokens (single-use, ADR 0011): keep the NEW pair, or the next
+    // refresh would present an already-used token and sign the user out.
+    await setSession({ accessToken: response.data.accessToken, refreshToken: response.data.refreshToken });
     return response.data.accessToken;
-  } catch {
-    await logout();
+  } catch (error) {
+    // Only a definitive rejection of the refresh token ends the session. A network error, timeout or
+    // server hiccup (e.g. a free host waking up) must not sign the user out.
+    if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+      await logout();
+    }
     return null;
   }
 }

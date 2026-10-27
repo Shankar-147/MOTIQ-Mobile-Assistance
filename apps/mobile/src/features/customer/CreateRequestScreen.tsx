@@ -227,17 +227,17 @@ export function CreateRequestScreen({ route, navigation }: Props) {
           </VStack>
 
           {step === 1 ? (
-            <VStack space="md">
+            <View style={{ gap: 14 }}>
               <Heading size="xl" color={COLORS.text}>
                 What's wrong?
               </Heading>
               <Input
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Describe it in your own words (any language)"
+                placeholder="Describe it (any language)"
                 accessibilityLabel="Describe the problem"
               />
-              <HStack space="sm">
+              <View style={{ flexDirection: "row", gap: 12, minHeight: 56 }}>
                 <View style={{ flex: 1 }}>
                   <Button
                     label={triageBusy === "text" ? "Thinking…" : "Suggest"}
@@ -258,7 +258,7 @@ export function CreateRequestScreen({ route, navigation }: Props) {
                     onPress={choosePhotoSource}
                   />
                 </View>
-              </HStack>
+              </View>
               {triageBusy ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <ActivityIndicator color={COLORS.accent} />
@@ -292,7 +292,7 @@ export function CreateRequestScreen({ route, navigation }: Props) {
                   ) : null}
                 </View>
               ) : null}
-              <HStack flexWrap="wrap" gap="$2">
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {ISSUE_TYPES.map((type) => (
                   <Chip
                     key={type}
@@ -303,9 +303,9 @@ export function CreateRequestScreen({ route, navigation }: Props) {
                     onPress={() => setIssueType(type)}
                   />
                 ))}
-              </HStack>
+              </View>
               <Button label="Next" icon={ChevronRight} onPress={() => setStep(2)} />
-            </VStack>
+            </View>
           ) : null}
 
           {step === 2 ? (
@@ -313,6 +313,9 @@ export function CreateRequestScreen({ route, navigation }: Props) {
               <Heading size="xl" color={COLORS.text}>
                 Your vehicle
               </Heading>
+              <Text size="sm" color={COLORS.textSecondary}>
+                Choosing your vehicle helps the provider arrive prepared.
+              </Text>
               {vehicles.length > 0 ? (
                 <HStack flexWrap="wrap" gap="$2">
                   <Chip
@@ -352,6 +355,17 @@ export function CreateRequestScreen({ route, navigation }: Props) {
                     {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : "Not specified"}
                   </RNText>
                 </View>
+                {description.trim() ? (
+                  <View style={rowStyle}>
+                    <RNText style={{ fontFamily: FONTS.body, color: COLORS.textSecondary }}>Details</RNText>
+                    <RNText
+                      numberOfLines={2}
+                      style={{ fontFamily: FONTS.bodyBold, color: COLORS.text, flexShrink: 1, textAlign: "right", marginLeft: 24 }}
+                    >
+                      {description.trim()}
+                    </RNText>
+                  </View>
+                ) : null}
                 <View style={rowStyle}>
                   <RNText style={{ fontFamily: FONTS.body, color: COLORS.textSecondary }}>Pickup</RNText>
                   <RNText style={{ fontFamily: FONTS.bodyBold, color: COLORS.text }}>Your current location</RNText>

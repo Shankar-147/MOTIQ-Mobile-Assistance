@@ -5,14 +5,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Car, Navigation, Plus, Sparkles } from "lucide-react-native";
+import { Car, Navigation, Plus } from "lucide-react-native";
 import { IssueType, RequestStatus, VehicleDto } from "@motiq/types";
 import { CustomerStackParamList, CustomerTabParamList } from "../../navigation/types";
 import { requestApi } from "../../api/requestApi";
 import { customerApi } from "../../api/customerApi";
 import { vehicleApi } from "../../api/vehicleApi";
 import { A11Y_LABELS, MIN_TOUCH_TARGET_SIZE } from "../../accessibility/a11y";
-import { Badge, BottomSheet, Button, Card, Chip, PulseDot } from "../../components/ui";
+import { AgentButton, Badge, BottomSheet, Button, Card, Chip, PulseDot } from "../../components/ui";
 import { MapBackdrop } from "../../components/MapBackdrop";
 import { OfflineBanner } from "../../components/OfflineBanner";
 import { ISSUE_ICONS, ISSUE_LABELS } from "../../theme/issueIcons";
@@ -100,28 +100,7 @@ export function CustomerHomeScreen({ navigation }: Props) {
                 {displayName ? `Hi, ${displayName}` : "MOTIQ"}
               </RNText>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ask MOTIQ, the AI assistant"
-                onPress={() => navigation.navigate("AskMotiq")}
-                style={{
-                  minHeight: MIN_TOUCH_TARGET_SIZE,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  paddingHorizontal: 14,
-                  borderRadius: MIN_TOUCH_TARGET_SIZE / 2,
-                  backgroundColor: COLORS.surface,
-                  borderWidth: 1,
-                  borderColor: COLORS.accent,
-                }}
-              >
-                <Sparkles size={16} color={COLORS.accent} />
-                <RNText style={{ fontFamily: FONTS.bodyBold, fontSize: 14, color: COLORS.text }}>Ask MOTIQ</RNText>
-              </Pressable>
-              <SosButton serviceRequestId={activeRequest?.id} />
-            </View>
+            <SosButton serviceRequestId={activeRequest?.id} />
           </View>
           <OfflineBanner />
         </View>
@@ -129,9 +108,12 @@ export function CustomerHomeScreen({ navigation }: Props) {
 
       <BottomSheet snapPoints={SHEET_SNAPS}>
         <VStack space="md">
-          <Heading size="xl" color={COLORS.text}>
-            What's wrong?
-          </Heading>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Heading size="xl" color={COLORS.text}>
+              What's wrong?
+            </Heading>
+            <AgentButton onPress={() => navigation.navigate("AskMotiq")} />
+          </View>
 
           {permission === "granted" ? (
             <HStack alignItems="center" space="sm" bg={COLORS.surfaceRaised} borderRadius={14} px="$3" py="$2">

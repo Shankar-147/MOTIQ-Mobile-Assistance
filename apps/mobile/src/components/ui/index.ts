@@ -17,3 +17,4 @@ export { PulseDot } from "./PulseDot";
 export { SheetModal } from "./SheetModal";
 export { SlideToConfirm } from "./SlideToConfirm";
 export { ScreenHeader, SectionLabel } from "./ScreenHeader";
+export { AgentButton } from "./AgentButton";
