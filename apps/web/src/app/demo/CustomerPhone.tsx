@@ -468,7 +468,7 @@ export function CustomerPhone() {
                       <PrimaryButton onClick={payNow} disabled={busy}>
                         Pay {money(payment.totalAmount)} with Razorpay
                       </PrimaryButton>
-                      <div className="text-[11px] text-[#6B6E7A]">Test mode — card 4111 1111 1111 1111, any future expiry and CVV.</div>
+                      <div className="text-[11px] text-[#6B6E7A]">Test mode — choose UPI and enter success@razorpay (or an Indian test card, then click Success).</div>
                     </>
                   ) : payment.status === "CAPTURED" ? (
                     <PrimaryButton onClick={() => setStage("rate")}>Paid ✓ — continue</PrimaryButton>
