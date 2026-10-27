@@ -36,6 +36,9 @@ function setup(options: { configured?: boolean; script?: (LlmChatResult | Error)
     flagConversation: jest.fn(async () => undefined),
     fileEmergencyAlert: jest.fn(async () => "Alert sent. Call 112."),
     faqReply: jest.fn(() => "FAQ answer"),
+    keywordTriage: jest.fn(async (text: string) =>
+      /tyre|tire|puncture/i.test(text) ? { issueType: "FLAT_TYRE", confidence: 0.8 } : { issueType: "OTHER", confidence: 0 },
+    ),
   };
   const vehicleService = {
     listByCustomer: jest.fn(async (profileId: string) =>
@@ -71,6 +74,23 @@ describe("AgentService", () => {
     const reply = await service.handleMessage(USER, { message: "how do payments work?" });
     expect(reply).toMatchObject({ reply: "FAQ answer", mode: "FAQ" });
     expect(llm.chat).not.toHaveBeenCalled();
+  });
+
+  it("still gives safety steps and a request button for a roadside problem when no model is configured", async () => {
+    const { service, llm } = setup({ configured: false });
+    const reply = await service.handleMessage(USER, { message: "my tyre is flat" });
+    expect(reply.mode).toBe("FAQ");
+    expect(reply.reply).toContain("Here's what to do while you wait");
+    expect(reply.reply).toContain("hazard lights");
+    expect(reply.uiActions).toEqual([{ type: "OPEN_REQUEST", issueType: IssueType.FLAT_TYRE, label: "Get a flat tyre fix" }]);
+    expect(llm.chat).not.toHaveBeenCalled();
+  });
+
+  it("does the same when the model call fails", async () => {
+    const { service } = setup({ script: [new Error("OpenRouter 429")] });
+    const reply = await service.handleMessage(USER, { message: "my tyre is flat" });
+    expect(reply.uiActions).toHaveLength(1);
+    expect(reply.reply).toContain("hazard lights");
   });
 
   it("falls back to the FAQ when the model call fails", async () => {

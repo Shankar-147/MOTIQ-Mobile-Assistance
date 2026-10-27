@@ -24,7 +24,7 @@ The LLM is reached through a provider-neutral `LlmChatPort` with an OpenRouter i
 - **Identity comes from the session** (`@CurrentUser()`; architecture rule 9). The model never supplies a profile id; vehicle ids it supplies are checked for ownership by `VehicleService` before anything is proposed or run.
 - **A model can only propose a write.** It is stored in `PendingActionsStore` and executes only via `POST /ai/agent/actions/:id/confirm`, which is bound to the user it was shown to, single-use and expires after 10 minutes. The user's tap, not a model-set flag, is the approval.
 - **The emergency pre-filter runs before any model call** and files a real SOS alert (ADR 0021); it never depends on a model being up or correct.
-- **Any model failure degrades to the FAQ answer**, never to an error screen.
+- **Any model failure degrades gracefully**, never to an error screen: a message about a recognisable roadside problem (flat tyre, battery, fuel, tow) still gets the reviewed safety steps and the request button, chosen by the keyword classifier with no model; anything else gets the fixed FAQ answer.
 - Rate limits (20/min per user for chat, 6/min for photos), a per-conversation message cap, a 6 MB body limit for the photo route, 300–700 token output caps.
 
 ## Alternatives Considered

@@ -173,6 +173,11 @@ export class AiService {
     }
   }
 
+  /** Keyword-only triage (never calls a model) — for fallbacks that must work with the AI down. */
+  async keywordTriage(description: string): Promise<ClassificationResult> {
+    return this.classifier.classifyIssueCategory(description);
+  }
+
   /** The deterministic FAQ answer — the agent's designed-default fallback. */
   faqReply(message: string): string {
     return this.keywordResponder.reply(message).reply;

@@ -1,12 +1,13 @@
 import { HttpException, Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AuthenticatedUser } from "@motiq/types";
+import { AuthenticatedUser, IssueType } from "@motiq/types";
 import { AiService } from "../ai/ai.service";
 import { detectEmergencyIntent } from "../ai/emergency-intent.util";
 import { LLM_CHAT, LlmChatPort, LlmMessage } from "../ai/llm/llm-chat.port";
 import { AgentToolContext, AgentToolError, AgentToolsService, UiAction } from "./agent-tools";
 import { buildAgentSystemPrompt } from "./agent-prompt";
 import { PendingActionsStore } from "./pending-actions.store";
+import { SafetySituation, getSafetyGuidance } from "./safety-guidance";
 
 const MAX_TOOL_ITERATIONS = 6;
 const MAX_HISTORY_MESSAGES = 20;
@@ -16,6 +17,25 @@ const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 40;
 
 const LENGTH_LIMIT_REPLY =
   "This conversation has reached its length limit. Please start a new chat, or use 'Contact support' to reach a person.";
+// What to tell a stranded driver when no model is available: the same reviewed steps the agent's
+// get_safety_guidance tool returns, picked by the keyword classifier.
+const FALLBACK_SITUATION: Record<IssueType, SafetySituation> = {
+  [IssueType.FLAT_TYRE]: "FLAT_TYRE",
+  [IssueType.BATTERY_JUMP]: "BATTERY_DEAD",
+  [IssueType.FUEL]: "OUT_OF_FUEL",
+  [IssueType.TOW]: "OTHER",
+  [IssueType.REPAIR]: "OTHER",
+  [IssueType.OTHER]: "OTHER",
+};
+const FALLBACK_BUTTON_LABEL: Record<IssueType, string> = {
+  [IssueType.FLAT_TYRE]: "Get a flat tyre fix",
+  [IssueType.BATTERY_JUMP]: "Get a battery jump-start",
+  [IssueType.FUEL]: "Get fuel delivered",
+  [IssueType.TOW]: "Get a tow",
+  [IssueType.REPAIR]: "Get a repair",
+  [IssueType.OTHER]: "Get roadside help",
+};
+const FALLBACK_CONFIDENCE = 0.5;
 const GAVE_UP_REPLY = "I couldn't finish working that out. Could you try asking in a simpler way?";
 
 export interface PendingActionView {
@@ -218,7 +238,22 @@ export class AgentService {
     return fallback;
   }
 
+  /** The no-model answer. A recognisable roadside problem still gets the reviewed safety steps and
+   * the request button (no model involved); anything else gets the fixed FAQ reply. */
   private async faq(conversationId: string, message: string): Promise<AgentReply> {
+    const triage = await this.ai.keywordTriage(message);
+    if (triage.issueType !== IssueType.OTHER && triage.confidence >= FALLBACK_CONFIDENCE) {
+      const steps = getSafetyGuidance(FALLBACK_SITUATION[triage.issueType]).steps.slice(0, 5);
+      const reply =
+        "Here's what to do while you wait:\n\n" +
+        steps.map((step, index) => `${index + 1}. ${step}`).join("\n") +
+        "\n\nTap the button below to get a provider.";
+      await this.ai.appendMessage(conversationId, "ASSISTANT", reply);
+      const uiActions: UiAction[] = [
+        { type: "OPEN_REQUEST", issueType: triage.issueType, label: FALLBACK_BUTTON_LABEL[triage.issueType] },
+      ];
+      return { conversationId, reply, pendingActions: [], uiActions, emergencyDetected: false, mode: "FAQ" };
+    }
     const reply = this.ai.faqReply(message);
     await this.ai.appendMessage(conversationId, "ASSISTANT", reply);
     return { conversationId, reply, pendingActions: [], uiActions: [], emergencyDetected: false, mode: "FAQ" };
