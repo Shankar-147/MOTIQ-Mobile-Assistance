@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { AuthenticatedUser, UserRole } from "@motiq/types";
 import { AuthService } from "./auth.service";
@@ -36,8 +36,8 @@ export class AuthController {
   // Demo-only (404 unless DEMO_MODE=true) — see AuthService.demoLogin().
   @Post("demo-login")
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  demoLogin(@Body() dto: DemoLoginDto) {
-    return this.authService.demoLogin(dto);
+  demoLogin(@Body() dto: DemoLoginDto, @Headers("x-demo-key") demoKey?: string) {
+    return this.authService.demoLogin(dto, demoKey);
   }
 
   @Post("admin/login")

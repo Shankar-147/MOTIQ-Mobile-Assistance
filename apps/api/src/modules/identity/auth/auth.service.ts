@@ -174,8 +174,13 @@ export class AuthService {
    * role, never an identity (CLAUDE.md rule 9). Must stay off in any shared or
    * production environment.
    */
-  async demoLogin(dto: DemoLoginDto): Promise<TokenPairResponse> {
+  async demoLogin(dto: DemoLoginDto, demoKey?: string): Promise<TokenPairResponse> {
     if (this.config.get<string>("DEMO_MODE") !== "true") {
+      throw new NotFoundException();
+    }
+    // On a public demo server, DEMO_KEY (when set) must be presented in the X-Demo-Key header.
+    const requiredKey = this.config.get<string>("DEMO_KEY");
+    if (requiredKey && demoKey !== requiredKey) {
       throw new NotFoundException();
     }
     const phoneKey = dto.role === "CUSTOMER" ? "DEMO_CUSTOMER_PHONE" : "DEMO_PROVIDER_PHONE";

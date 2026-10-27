@@ -1,0 +1,64 @@
+# Render blueprint for the hosted MOTIQ demo backend (apps/api).
+# Secrets marked sync:false are entered once in the Render dashboard — never commit them.
+databases:
+  - name: motiq-db
+    plan: free            # use a paid plan for the demo day if the free one has expired
+    databaseName: motiq
+    user: motiq
+
+services:
+  - type: web
+    name: motiq-api
+    runtime: node
+    plan: starter         # "free" sleeps after 15 min idle (cold start ~1 min); use starter for a live demo
+    buildCommand: >-
+      npm ci &&
+      npm run --workspace packages/types build &&
+      npm run --workspace apps/api prisma:generate &&
+      npm run --workspace apps/api build
+    startCommand: >-
+      node apps/api/scripts/predeploy.js &&
+      npm run --workspace apps/api prisma:deploy &&
+      node apps/api/dist/main.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        fromDatabase: { name: motiq-db, property: connectionString }
+      - key: SHADOW_DATABASE_URL
+        fromDatabase: { name: motiq-db, property: connectionString }
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      - key: MATCHING_OFFER_TIMEOUT_SECONDS
+        value: "900"
+      - key: MATCHING_SEARCH_RADIUS_METERS
+        value: "10000"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_KEY
+        sync: false
+      - key: DEMO_CUSTOMER_PHONE
+        sync: false
+      - key: DEMO_PROVIDER_PHONE
+        sync: false
+      - key: ADMIN_SEED_PASSWORD
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EMAIL_SMTP_USER
+        sync: false
+      - key: EMAIL_SMTP_APP_PASSWORD
+        sync: false
