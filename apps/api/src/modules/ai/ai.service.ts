@@ -10,7 +10,7 @@ import { KeywordAssistantResponder } from "./adapters/keyword-assistant.responde
 import { detectEmergencyIntent } from "./emergency-intent.util";
 import { IssueType } from "@motiq/types";
 import { ClassificationResult } from "./issue-classifier.util";
-import { LLM_CHAT, LlmChatPort } from "./llm/llm-chat.port";
+import { LLM_CHAT, LlmChatPort, LlmMessage } from "./llm/llm-chat.port";
 import { CLASSIFY_SYSTEM_PROMPT, Diagnosis, PHOTO_SYSTEM_PROMPT, parseDiagnosis } from "./issue-diagnosis.util";
 import { RankableCandidate, RankedCandidate } from "./provider-ranking.util";
 import { estimateReplyCostUsd, hasExceededConversationCostCap } from "./ai-cost.util";
@@ -103,22 +103,35 @@ export class AiService {
       throw new ServiceUnavailableException("Photo diagnosis isn't available right now. Please choose the issue yourself.");
     }
     try {
-      const result = await this.llm.chat({
-        purpose: "vision",
-        maxTokens: 900,
-        timeoutMs: 40_000,
-        messages: [
-          { role: "system", content: PHOTO_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: input.note ? `Driver's note: ${input.note.slice(0, 300)}` : "What is the problem in this photo?" },
-              { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.imageBase64}` } },
-            ],
-          },
-        ],
-      });
-      const diagnosis = parseDiagnosis(result.content);
+      const messages: LlmMessage[] = [
+        { role: "system", content: PHOTO_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: input.note ? `Driver's note: ${input.note.slice(0, 300)}` : "What is the problem in this photo?" },
+            { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.imageBase64}` } },
+          ],
+        },
+      ];
+      let diagnosis: Diagnosis | null = null;
+      // A free vision model sometimes answers in prose or with an empty reply; ask once more, firmly.
+      for (let attempt = 1; attempt <= 2 && !diagnosis; attempt += 1) {
+        const result = await this.llm.chat({
+          purpose: "vision",
+          maxTokens: 900,
+          timeoutMs: 40_000,
+          messages:
+            attempt === 1
+              ? messages
+              : [...messages, { role: "user", content: "Reply again with ONLY the JSON object described above, nothing else." }],
+        });
+        diagnosis = parseDiagnosis(result.content);
+        if (!diagnosis) {
+          this.logger.warn(
+            `Photo triage reply was not usable JSON (attempt ${attempt}): ${JSON.stringify((result.content ?? "").slice(0, 300))}`,
+          );
+        }
+      }
       if (diagnosis) {
         return { ...diagnosis, source: "AI" };
       }

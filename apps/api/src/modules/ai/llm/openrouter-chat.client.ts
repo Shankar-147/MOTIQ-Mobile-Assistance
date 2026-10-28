@@ -13,6 +13,13 @@ const DEFAULT_MODELS = [
   "google/gemma-4-31b-it:free",
   "openrouter/free",
 ];
+// Photo triage must run on a model that can actually read images. "openrouter/free" may route to a
+// text-only model, which cannot see the photo, so it is left out of this chain.
+const DEFAULT_VISION_MODELS = [
+  "nvidia/nemotron-3.5-super-vl:free",
+  "google/gemma-4-31b-it:free",
+  "google/gemma-4-26b-a4b-it:free",
+];
 const DEFAULT_MAX_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 45_000;
 // Free providers are often briefly at capacity (HTTP 429, 5xx, or an error inside a 200). One quick
@@ -45,7 +52,12 @@ export class OpenRouterChatClient implements LlmChatPort {
     this.baseUrl = config.get<string>("OPENROUTER_BASE_URL") || DEFAULT_BASE_URL;
     const fallbacks = parseModelList(config.get<string>("AI_FALLBACK_MODELS"));
     this.agentModels = buildModelChain(config.get<string>("AI_AGENT_MODEL")?.trim(), fallbacks.length > 0 ? fallbacks : DEFAULT_MODELS, DEFAULT_MODELS);
-    this.visionModels = buildModelChain(config.get<string>("AI_VISION_MODEL")?.trim(), fallbacks.length > 0 ? fallbacks : DEFAULT_MODELS, DEFAULT_MODELS);
+    const visionFallbacks = parseModelList(config.get<string>("AI_VISION_FALLBACK_MODELS"));
+    this.visionModels = buildModelChain(
+      config.get<string>("AI_VISION_MODEL")?.trim(),
+      visionFallbacks.length > 0 ? visionFallbacks : DEFAULT_VISION_MODELS,
+      DEFAULT_VISION_MODELS,
+    );
     if (!this.apiKey) {
       this.logger.warn("OPENROUTER_API_KEY not set — AI features fall back to their deterministic behaviour.");
     } else {
