@@ -26,7 +26,7 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "CreateRequest">;
 
 const ISSUE_TYPES = Object.values(IssueType);
 const TOTAL_STEPS = 3;
-const SHEET_SNAPS = [600];
+const SHEET_SNAPS = [660];
 // A model's suggestion is only applied automatically when it is at least this sure.
 const AUTO_APPLY_CONFIDENCE = 0.5;
 // Base64 text length cap for a photo (the API accepts ~4M; stay well under it).

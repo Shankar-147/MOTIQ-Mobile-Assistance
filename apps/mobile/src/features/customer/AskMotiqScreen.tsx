@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Dimensions, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowUp, Check, Sparkles, X } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -36,6 +36,17 @@ const SUGGESTIONS = [
 const WELCOME =
   "Hi! I'm IQ, your MOTIQ assistant. I can check your vehicle's service status, explain what's due, log a service, and get you roadside help.";
 
+/** The model sometimes writes markdown; the chat shows plain text, so drop the symbols. */
+export function plainText(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "• ")
+    .replace(/\*\*/g, "");
+}
+
 let nextId = 1;
 const newId = () => `m${nextId++}`;
 
@@ -52,13 +63,24 @@ export function AskMotiqScreen({ navigation }: Props) {
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const rootRef = useRef<View>(null);
+  // How far the keyboard covers the bottom of this screen (0 when it is closed).
+  const [keyboardOverlap, setKeyboardOverlap] = useState(0);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    // The window is not resized by the keyboard on this app's Android setup, and the screen's layout
+    // can extend a little below the visible area, so "lift by the keyboard's height" comes up short
+    // and hides the input bar. Measure how much of the screen is really covered instead.
+    const show = Keyboard.addListener(showEvent, (e) => {
+      const keyboardTop = e.endCoordinates.screenY ?? Dimensions.get("screen").height - e.endCoordinates.height;
+      const measure = () =>
+        rootRef.current?.measureInWindow((_x, y, _w, h) => setKeyboardOverlap(Math.max(0, y + h - keyboardTop)));
+      setTimeout(measure, 60);
+      setTimeout(measure, 350);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardOverlap(0));
     return () => {
       show.remove();
       hide.remove();
@@ -85,7 +107,7 @@ export function AskMotiqScreen({ navigation }: Props) {
         {
           id: newId(),
           role: "assistant",
-          text: reply.reply,
+          text: plainText(reply.reply),
           emergency: reply.emergencyDetected,
           basicMode: reply.mode === "FAQ" && !reply.emergencyDetected,
           uiActions: reply.uiActions,
@@ -123,10 +145,10 @@ export function AskMotiqScreen({ navigation }: Props) {
   }
 
   const empty = messages.length === 0;
-  const bottomPad = keyboardHeight > 0 ? keyboardHeight + 8 : insets.bottom + 8;
+  const bottomPad = keyboardOverlap > 0 ? keyboardOverlap + 8 : insets.bottom + 8;
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <View ref={rootRef} collapsable={false} style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <ScrollView
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
